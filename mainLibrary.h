@@ -29,8 +29,10 @@ typedef struct block
 
 typedef struct
 {
-   long head;      // the first block in the file (i.e. the head block of the list of blocks)
-   long freepos;   // the first free position in the last block (i.e. in the tail block of the list)
+   long head; // the first block in the file (i.e. the head block of the list of blocks)
+   long tail;
+   long freepos; // the first free position in the last block (i.e. in the tail block of the list)
+
    long lostspace; // the total space lost due to logical deletions
    long newblck;   // the file border (the first free block available to expand the file size)
    long freeblck;  // head of the list of freed blocks (list of the unused blocks)
@@ -117,7 +119,8 @@ void Open(t_LnOVS **F, char *fname, char mode)
          exit(EXIT_FAILURE);
       }
       // initializing the header part in main memory (in (*F)->h)
-      (*F)->h.head = 1;      // the first allocated empty block
+      (*F)->h.head = 1; // the first allocated empty block
+      (*F)->h.tail = 1;
       (*F)->h.freepos = 0;   // first free position in the last block
       (*F)->h.lostspace = 0; // initially there are 0 bytes occupied by the logically deleted records
       (*F)->h.newblck = 2;   // the next allocated new block (in case the list of freed blocks is empty)
@@ -163,6 +166,11 @@ void setHeader(t_LnOVS *F, char *hname, long val)
       F->h.head = val;
       return;
    }
+   if (strcmp(hname, "tail") == 0)
+   {
+      F->h.tail = val;
+      return;
+   }
    if (strcmp(hname, "freepos") == 0)
    {
       F->h.freepos = val;
@@ -191,6 +199,8 @@ long getHeader(t_LnOVS *F, char *hname)
 {
    if (strcmp(hname, "head") == 0)
       return F->h.head;
+   if (strcmp(hname, "tail") == 0)
+      return F->h.tail;
    if (strcmp(hname, "freepos") == 0)
       return F->h.freepos;
    if (strcmp(hname, "lostspace") == 0)
@@ -240,23 +250,23 @@ void freeBlock(t_LnOVS *F, long i)
 
 // function related to the primary index table
 
-int binray_search(Pr_index index_table[5000], int size, int key, bool found, int *i)
+int binary_search(Pr_index index_table[5000], int size, int key, bool *found, int *i)
 {
    if (size == 0)
    {
-      found = false,
-      i = 0;
+      *found = false,
+      *i = 0;
       return 1;
    }
    int min = 0, max = size - 1;
    int middle;
-   found = false;
+   *found = false;
    while (min <= max)
    {
       middle = min + (max - min) / 2;
-      if (index_table[middle].Student_ID = key)
+      if (index_table[middle].Student_ID == key)
       {
-         found = true;
+         *found = true;
          *i = middle;
          return 0;
       }
@@ -277,13 +287,13 @@ int binray_search(Pr_index index_table[5000], int size, int key, bool found, int
    return 1;
 }
 
-int Insert_Pr_index(Pr_index index_table[5000], int Size, int ID, int block_number, int offset)
+int Insert_Pr_index(Pr_index index_table[5000], int *Size, int ID, int block_number, int offset)
 {
 
    bool found;
    int i;
-   int K = Size;
-   binray_search(index_table, Size, ID, found, &i);
+   int K = *Size;
+   binary_search(index_table, *Size, ID, &found, &i);
    if (!found)
    {
       while (K >= i + 1)
@@ -295,6 +305,7 @@ int Insert_Pr_index(Pr_index index_table[5000], int Size, int ID, int block_numb
       index_table[i].crdt.block_number = block_number;
       index_table[i].crdt.offset = offset;
    }
+   (*Size)++;
 }
 
 // additional functions
@@ -353,4 +364,149 @@ int randomDay(int year, int month)
    if (days == -1)
       return -1; // invalid month
    return (rand() % days) + 1;
+}
+
+void DisplayAllContentsTable(t_LnOVS *F)
+{
+    block currentBlock;
+    rec studentRecord;
+    
+    printf("\n=========================================================================================================\n");
+    printf("                                     STUDENT DATABASE - TABLE VIEW\n");
+    printf("=========================================================================================================\n");
+    printf(" ID   | Name                     | Gender | Birth Date  | Wilaya        | Year  | Speciality\n");
+    printf("------+--------------------------+--------+-------------+---------------+-------+------------\n");
+    
+    long currentBlockNum = getHeader(F, "head");
+    long tailBlock = getHeader(F, "tail");
+    long freePos = getHeader(F, "freepos");
+    int recordCount = 0;
+    
+    while (currentBlockNum != -1)
+    {
+        ReadBlock(F, currentBlockNum, &currentBlock);
+        
+        int maxRecords = currentBlock.Nb;
+        if (currentBlockNum == tailBlock)
+        {
+            maxRecords = freePos;
+        }
+        
+        for (int i = 0; i < maxRecords; i++)
+        {
+            studentRecord = currentBlock.tab[i];
+            
+            // Skip deleted records (if Student_ID = -1)
+            if (studentRecord.Student_ID == -1)
+                continue;
+            
+            recordCount++;
+            
+            // Format name
+            char fullName[35];
+            snprintf(fullName, sizeof(fullName), "%s %s", 
+                     studentRecord.Family_Name, studentRecord.First_Name);
+            
+            // Truncate if too long
+            if (strlen(fullName) > 22)
+            {
+                fullName[19] = '.';
+                fullName[20] = '.';
+                fullName[21] = '.';
+                fullName[22] = '\0';
+            }
+            
+            // Format speciality
+            char speciality[20];
+            strncpy(speciality, studentRecord.Speciality, 19);
+            speciality[19] = '\0';
+            if (strlen(studentRecord.Speciality) > 19)
+            {
+                speciality[16] = '.';
+                speciality[17] = '.';
+                speciality[18] = '.';
+            }
+            
+            // Format wilaya
+            char wilaya[20];
+            strncpy(wilaya, studentRecord.Wilaya_Birth, 19);
+            wilaya[19] = '\0';
+            if (strlen(studentRecord.Wilaya_Birth) > 19)
+            {
+                wilaya[16] = '.';
+                wilaya[17] = '.';
+                wilaya[18] = '.';
+            }
+            
+            // Format year
+            char year[10];
+            strncpy(year, studentRecord.Year_Study, 9);
+            year[9] = '\0';
+            
+            printf(" %-5d| %-24s| %-7s| %02d/%02d/%04d | %-15s | %-6s| %s\n",
+                   studentRecord.Student_ID,
+                   fullName,
+                   studentRecord.Gender == 1 ? "Male" : "Female",
+                   studentRecord.Date_Birth.day,
+                   studentRecord.Date_Birth.month,
+                   studentRecord.Date_Birth.year,
+                   wilaya,
+                   year,
+                   speciality);
+        }
+        
+        currentBlockNum = currentBlock.next;
+    }
+    
+    printf("=========================================================================================================\n");
+    printf("Total Active Records: %d\n\n", recordCount);
+}
+
+// Function to display a single record in detail
+void DisplayRecordDetail(rec student)
+{
+   printf("\n════════════════════════════════════════════════════════════\n");
+   printf("                 STUDENT DETAILED VIEW\n");
+   printf("════════════════════════════════════════════════════════════\n");
+
+   // Personal Information
+   printf("┌─ PERSONAL INFORMATION\n");
+   printf("│  Student ID: %d\n", student.Student_ID);
+   printf("│  Full Name: %s %s\n", student.Family_Name, student.First_Name);
+   printf("│  Gender: %s\n", student.Gender == 1 ? "Male" : student.Gender == 2 ? "Female"
+                                                                                : "Not specified");
+
+   // Date of Birth with validation
+   if (student.Date_Birth.year > 1900 && student.Date_Birth.year < 2100 &&
+       student.Date_Birth.month >= 1 && student.Date_Birth.month <= 12 &&
+       student.Date_Birth.day >= 1 && student.Date_Birth.day <= 31)
+   {
+      printf("│  Date of Birth: %02d/%02d/%04d\n",
+             student.Date_Birth.day,
+             student.Date_Birth.month,
+             student.Date_Birth.year);
+      printf("│  Age: %d years\n", 2024 - student.Date_Birth.year);
+   }
+   else
+   {
+      printf("│  Date of Birth: Invalid date\n");
+   }
+
+   printf("│  Birth Wilaya: %s\n", student.Wilaya_Birth);
+
+   // Academic Information
+   printf("├─ ACADEMIC INFORMATION\n");
+   printf("│  Year of Study: %s\n", student.Year_Study);
+   printf("│  Speciality: %s\n", student.Speciality);
+
+   // Medical Information
+   printf("├─ MEDICAL INFORMATION\n");
+   printf("│  Blood Type: %s\n", student.Blood_Type);
+
+   // Residential Status
+   printf("├─ RESIDENTIAL STATUS\n");
+   printf("│  University Campus Resident: %s\n",
+          student.Resident_UC ? "Yes" : "No");
+
+   printf("└───────────────────────────────────────────────────────────\n");
 }
