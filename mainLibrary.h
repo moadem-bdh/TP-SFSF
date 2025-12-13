@@ -89,6 +89,29 @@ Speciality specs[5] = {
 
 };
 
+// strcutures of the index table TOF file
+typedef struct
+{
+   int Student_ID;
+   Pr_cor crdt;
+} rec_ip;
+
+typedef struct
+{
+   rec_ip tab[40];
+   int Nb;
+} block_ip;
+
+typedef struct
+{
+   int nblk;
+} header_ip;
+
+typedef struct
+{
+   FILE *f;
+   header_ip head;
+} TOF_ip;
 // open a LnOVS file / mode ='N' for a New file and mode ='E' for an Existing file
 // returns in *F a pointer to a newly allocated variable of type 't_LnOVS'
 void Open(t_LnOVS **F, char *fname, char mode)
@@ -150,14 +173,24 @@ void ReadBlock(t_LnOVS *F, long i, block *buf)
    fseek(F->f, sizeof(header) + (i - 1) * sizeof(block), SEEK_SET);
    fread(buf, sizeof(block), 1, F->f);
 }
+void ReadBlock_ip(TOF_ip *F, int i, block_ip *buf)
+{
+   fseek(F->f, sizeof(header_ip) + (i - 1) * sizeof(block_ip), SEEK_SET);
+   fread(buf, sizeof(block_ip), 1, F->f);
+}
 
 // writing the contents of the variable buf in data block number i
-void WriteBlock(t_LnOVS *F, long i, block *buf)
+
+void WriteBlock(t_LnOVS *F, int i, block *buf)
 {
    fseek(F->f, sizeof(header) + (i - 1) * sizeof(block), SEEK_SET);
    fwrite(buf, sizeof(block), 1, F->f);
 }
-
+void WriteBlock(TOF_ip *F, int i, block_ip *buf)
+{
+   fseek(F->f, sizeof(header_ip) + (i - 1) * sizeof(block_ip), SEEK_SET);
+   fwrite(buf, sizeof(block_ip), 1, F->f);
+}
 // header updates in main memory
 void setHeader(t_LnOVS *F, char *hname, long val)
 {
@@ -193,6 +226,17 @@ void setHeader(t_LnOVS *F, char *hname, long val)
    }
    fprintf(stderr, "setHeader : Unknown headerName: \"%s\"\n", hname);
 }
+void setHeader_ip(TOF_ip *F, char *hname, int val)
+{
+
+   if (strcmp(hname, "nblk") == 0)
+   {
+      F->head.nblk = val;
+      return;
+   }
+
+   fprintf(stderr, "setHeader : Unknown headerName: \"%s\"\n", hname);
+}
 
 // header values (from main memory)
 long getHeader(t_LnOVS *F, char *hname)
@@ -209,6 +253,12 @@ long getHeader(t_LnOVS *F, char *hname)
       return F->h.newblck;
    if (strcmp(hname, "freeblck") == 0)
       return F->h.freeblck;
+   fprintf(stderr, "getHeader : Unknown headerName: \"%s\"\n", hname);
+}
+int getHeader_ip(TOF_ip *F, char *hname)
+{
+   if (strcmp(hname, "nblk") == 0)
+      return F->head.nblk;
    fprintf(stderr, "getHeader : Unknown headerName: \"%s\"\n", hname);
 }
 
@@ -368,98 +418,98 @@ int randomDay(int year, int month)
 
 void DisplayAllContentsTable(t_LnOVS *F)
 {
-    block currentBlock;
-    rec studentRecord;
-    
-    printf("\n=========================================================================================================\n");
-    printf("                                     STUDENT DATABASE - TABLE VIEW\n");
-    printf("=========================================================================================================\n");
-    printf(" ID   | Name                     | Gender | Birth Date  | Wilaya        | Year  | Speciality\n");
-    printf("------+--------------------------+--------+-------------+---------------+-------+------------\n");
-    
-    long currentBlockNum = getHeader(F, "head");
-    long tailBlock = getHeader(F, "tail");
-    long freePos = getHeader(F, "freepos");
-    int recordCount = 0;
-    
-    while (currentBlockNum != -1)
-    {
-        ReadBlock(F, currentBlockNum, &currentBlock);
-        
-        int maxRecords = currentBlock.Nb;
-        if (currentBlockNum == tailBlock)
-        {
-            maxRecords = freePos;
-        }
-        
-        for (int i = 0; i < maxRecords; i++)
-        {
-            studentRecord = currentBlock.tab[i];
-            
-            // Skip deleted records (if Student_ID = -1)
-            if (studentRecord.Student_ID == -1)
-                continue;
-            
-            recordCount++;
-            
-            // Format name
-            char fullName[35];
-            snprintf(fullName, sizeof(fullName), "%s %s", 
-                     studentRecord.Family_Name, studentRecord.First_Name);
-            
-            // Truncate if too long
-            if (strlen(fullName) > 22)
-            {
-                fullName[19] = '.';
-                fullName[20] = '.';
-                fullName[21] = '.';
-                fullName[22] = '\0';
-            }
-            
-            // Format speciality
-            char speciality[20];
-            strncpy(speciality, studentRecord.Speciality, 19);
-            speciality[19] = '\0';
-            if (strlen(studentRecord.Speciality) > 19)
-            {
-                speciality[16] = '.';
-                speciality[17] = '.';
-                speciality[18] = '.';
-            }
-            
-            // Format wilaya
-            char wilaya[20];
-            strncpy(wilaya, studentRecord.Wilaya_Birth, 19);
-            wilaya[19] = '\0';
-            if (strlen(studentRecord.Wilaya_Birth) > 19)
-            {
-                wilaya[16] = '.';
-                wilaya[17] = '.';
-                wilaya[18] = '.';
-            }
-            
-            // Format year
-            char year[10];
-            strncpy(year, studentRecord.Year_Study, 9);
-            year[9] = '\0';
-            
-            printf(" %-5d| %-24s| %-7s| %02d/%02d/%04d | %-15s | %-6s| %s\n",
-                   studentRecord.Student_ID,
-                   fullName,
-                   studentRecord.Gender == 1 ? "Male" : "Female",
-                   studentRecord.Date_Birth.day,
-                   studentRecord.Date_Birth.month,
-                   studentRecord.Date_Birth.year,
-                   wilaya,
-                   year,
-                   speciality);
-        }
-        
-        currentBlockNum = currentBlock.next;
-    }
-    
-    printf("=========================================================================================================\n");
-    printf("Total Active Records: %d\n\n", recordCount);
+   block currentBlock;
+   rec studentRecord;
+
+   printf("\n=========================================================================================================\n");
+   printf("                                     STUDENT DATABASE - TABLE VIEW\n");
+   printf("=========================================================================================================\n");
+   printf(" ID   | Name                     | Gender | Birth Date  | Wilaya        | Year  | Speciality\n");
+   printf("------+--------------------------+--------+-------------+---------------+-------+------------\n");
+
+   long currentBlockNum = getHeader(F, "head");
+   long tailBlock = getHeader(F, "tail");
+   long freePos = getHeader(F, "freepos");
+   int recordCount = 0;
+
+   while (currentBlockNum != -1)
+   {
+      ReadBlock(F, currentBlockNum, &currentBlock);
+
+      int maxRecords = currentBlock.Nb;
+      if (currentBlockNum == tailBlock)
+      {
+         maxRecords = freePos;
+      }
+
+      for (int i = 0; i < maxRecords; i++)
+      {
+         studentRecord = currentBlock.tab[i];
+
+         // Skip deleted records (if Student_ID = -1)
+         if (studentRecord.Student_ID == -1)
+            continue;
+
+         recordCount++;
+
+         // Format name
+         char fullName[35];
+         snprintf(fullName, sizeof(fullName), "%s %s",
+                  studentRecord.Family_Name, studentRecord.First_Name);
+
+         // Truncate if too long
+         if (strlen(fullName) > 22)
+         {
+            fullName[19] = '.';
+            fullName[20] = '.';
+            fullName[21] = '.';
+            fullName[22] = '\0';
+         }
+
+         // Format speciality
+         char speciality[20];
+         strncpy(speciality, studentRecord.Speciality, 19);
+         speciality[19] = '\0';
+         if (strlen(studentRecord.Speciality) > 19)
+         {
+            speciality[16] = '.';
+            speciality[17] = '.';
+            speciality[18] = '.';
+         }
+
+         // Format wilaya
+         char wilaya[20];
+         strncpy(wilaya, studentRecord.Wilaya_Birth, 19);
+         wilaya[19] = '\0';
+         if (strlen(studentRecord.Wilaya_Birth) > 19)
+         {
+            wilaya[16] = '.';
+            wilaya[17] = '.';
+            wilaya[18] = '.';
+         }
+
+         // Format year
+         char year[10];
+         strncpy(year, studentRecord.Year_Study, 9);
+         year[9] = '\0';
+
+         printf(" %-5d| %-24s| %-7s| %02d/%02d/%04d | %-15s | %-6s| %s\n",
+                studentRecord.Student_ID,
+                fullName,
+                studentRecord.Gender == 1 ? "Male" : "Female",
+                studentRecord.Date_Birth.day,
+                studentRecord.Date_Birth.month,
+                studentRecord.Date_Birth.year,
+                wilaya,
+                year,
+                speciality);
+      }
+
+      currentBlockNum = currentBlock.next;
+   }
+
+   printf("=========================================================================================================\n");
+   printf("Total Active Records: %d\n\n", recordCount);
 }
 
 // Function to display a single record in detail
@@ -509,4 +559,74 @@ void DisplayRecordDetail(rec student)
           student.Resident_UC ? "Yes" : "No");
 
    printf("└───────────────────────────────────────────────────────────\n");
+}
+
+int save_indextable(Pr_index index_table[5000], int Size, char filename[50])
+{
+   TOF_ip *F = malloc(sizeof(TOF_ip));
+
+   if (F == NULL)
+   {
+      printf("Error: Memory allocation failed\n");
+      return -1;
+   }
+
+   // Open file in write/binary mode (create new or overwrite)
+   F->f = fopen(filename, "wb+");
+   if (F->f == NULL)
+   {
+      perror("Error opening index file");
+      free(F);
+      return -1;
+   }
+
+   // Initialize header
+   F->head.nblk = 0;
+
+   // Write initial header (will be updated later)
+   fwrite(&(F->head), sizeof(header_ip), 1, F->f);
+
+   block_ip buf;
+   buf.Nb = 0;
+
+   for (int i = 0; i < Size; i++)
+   {
+      if (buf.Nb >= 40)
+      { // Block is full
+         // Write current block
+         WriteBlock_ip(F, F->head.nblk + 1, &buf);
+         F->head.nblk++; // Increment block count
+
+         // Reset buffer for next block
+         buf.Nb = 0;
+      }
+
+      // Add record to buffer
+      buf.tab[buf.Nb].Student_ID = index_table[i].Student_ID;
+      buf.tab[buf.Nb].crdt = index_table[i].crdt;
+      buf.Nb++;
+   }
+
+   // Write the last (possibly partial) block
+   if (buf.Nb > 0)
+   {
+      WriteBlock_ip(F, F->head.nblk + 1, &buf);
+      F->head.nblk++;
+   }
+
+   // Update header in file
+   fseek(F->f, 0L, SEEK_SET);
+   fwrite(&(F->head), sizeof(header_ip), 1, F->f);
+
+   // Close and cleanup
+   fclose(F->f);
+   free(F);
+
+   printf("Index table saved successfully to %s\n", filename);
+   return 0;
+}
+
+int loadindextable(char filename[50], Pr_index indextable[5000])
+{
+   int i = 0;
 }
