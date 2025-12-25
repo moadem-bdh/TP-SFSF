@@ -8,7 +8,7 @@
 
 //  Definition of the structures
 
-typedef struct 
+typedef struct
 {
    int year, month, day;
 
@@ -20,7 +20,7 @@ typedef struct
    char Family_Name[30], First_Name[30], Wilaya_Birth[20], Blood_Type[50], Year_Study[10], Speciality[60];
    DateS Date_Birth;
    bool Resident_UC;
-   
+
 } rec;
 
 struct block
@@ -63,7 +63,7 @@ typedef struct
 
 typedef struct
 {
-   int Identifier ;
+   int Identifier;
    Pr_cor crdt; // this for the coordinates
 } Pr_index;
 
@@ -92,12 +92,11 @@ typedef struct
 
 // FIXED: Added proper braces for array initialization
 Speciality specs[5] = {
-    {"1CP", {{"Integrated Preparatory Classes"}}}, 
-    {"2CP", {{"Integrated Preparatory Classes"}}}, 
-    {"1CS", {{"Common Core"}}}, 
-    {"2CS", {{"Information Systems and Technologies (SIT)"}, {"Computer Systems (SIQ)"}, {"Software and Computer Systems (SIL)"}, {"Intelligent Systems and Data (SID)"}}}, 
-    {"3CS", {{"Information Systems and Technologies (SIT)"}, {"Computer Systems (SIQ)"}, {"Software and Computer Systems (SIL)"}, {"Intelligent Systems and Data (SID)"}}}
-};
+    {"1CP", {{"Integrated Preparatory Classes"}}},
+    {"2CP", {{"Integrated Preparatory Classes"}}},
+    {"1CS", {{"Common Core"}}},
+    {"2CS", {{"Information Systems and Technologies (SIT)"}, {"Computer Systems (SIQ)"}, {"Software and Computer Systems (SIL)"}, {"Intelligent Systems and Data (SID)"}}},
+    {"3CS", {{"Information Systems and Technologies (SIT)"}, {"Computer Systems (SIQ)"}, {"Software and Computer Systems (SIL)"}, {"Intelligent Systems and Data (SID)"}}}};
 
 // strcutures of the index table TOF file
 typedef struct
@@ -127,7 +126,7 @@ typedef struct
 void Open(t_LnOVS **F, char *fname, char mode)
 {
    block buf;
-   
+
    *F = malloc(sizeof(t_LnOVS));
 
    if (mode == 'E' || mode == 'e')
@@ -162,8 +161,8 @@ void Open(t_LnOVS **F, char *fname, char mode)
       fwrite(&((*F)->h), sizeof(header), 1, (*F)->f);
       // writing the first allocated block
       buf.next = -1;
-      buf.prev = -1;  // Added: initialize prev
-      buf.Nb = 0;     // Added: initialize Nb
+      buf.prev = -1; // Added: initialize prev
+      buf.Nb = 0;    // Added: initialize Nb
       fwrite(&buf, sizeof(block), 1, (*F)->f);
    }
 } // LnOVS_open
@@ -201,7 +200,7 @@ void Open_TOF(TOF_ip **F, char *fname, char mode)
       // writing the headers at offset 0 of stream (*F)->f
       fwrite(&((*F)->head), sizeof(header_ip), 1, (*F)->f);
       // writing the first allocated block
-      buf.Nb = 0;  // Initialize buffer
+      buf.Nb = 0; // Initialize buffer
       fwrite(&buf, sizeof(block_ip), 1, (*F)->f);
    }
 } // TOF open
@@ -314,7 +313,7 @@ long getHeader(t_LnOVS *F, char *hname)
    if (strcmp(hname, "freeblck") == 0)
       return F->h.freeblck;
    fprintf(stderr, "getHeader : Unknown headerName: \"%s\"\n", hname);
-   return -1;  // Added: return value for error case
+   return -1; // Added: return value for error case
 }
 
 int getHeader_ip(TOF_ip *F, char *hname)
@@ -322,7 +321,7 @@ int getHeader_ip(TOF_ip *F, char *hname)
    if (strcmp(hname, "nblk") == 0)
       return F->head.nblk;
    fprintf(stderr, "getHeader : Unknown headerName: \"%s\"\n", hname);
-   return -1;  // Added: return value for error case
+   return -1; // Added: return value for error case
 }
 
 // allocate a new block to the file
@@ -364,13 +363,7 @@ void freeBlock(t_LnOVS *F, long i)
 // function related to the primary index table
 int binary_search(Pr_index index_table[], int size, int key, bool *found, int *i)
 {
-  
-   if (size == 0)
-   {
-      *found = false;
-      *i = 0;
-      return 1;
-   }
+
    int min = 0, max = size - 1;
    int middle;
    *found = false;
@@ -400,25 +393,59 @@ int binary_search(Pr_index index_table[], int size, int key, bool *found, int *i
    return 1;
 }
 
-int Insert_Pr_index(Pr_index index_table[], int *Size, int ID, int block_number, int offset)
+
+int Insert_Pr_index(Pr_index *index_table, int *Size,
+                    int ID, int block_number, int offset)
+{
+   bool found;
+   int i;
+
+   binary_search(index_table, *Size, ID, &found, &i);
+
+   if (found)
+   {
+      printf("Identifier %d already exists\n", ID);
+      return 1;
+   }
+   printf("\n this is i where u shall insert:%d , and here the Id:%d", i,ID);
+   printf("\n the block:%d,the offset:%d",block_number,offset);
+
+   // shift elements to the right
+   for (int K = *Size; K > i; K--)
+   {
+      index_table[K] = index_table[K - 1];
+   }
+
+   // insert new entry
+   index_table[i].Identifier = ID;
+   index_table[i].crdt.block_number = block_number;
+   index_table[i].crdt.offset = offset;
+   printf("\n Inserted iD:%d",index_table[i].Identifier);
+   printf("\n Inserted block:%d", index_table[i].crdt.block_number);
+   printf("\n Inserted offset:%d\n", index_table[i].crdt.offset);
+   printf("--------------------");
+
+   (*Size)++;
+   return 0;
+}
+int Insert_index(Pr_index index_table[], int *Size, int ID, int block_number, int offset)
 {
    bool found;
    int i;
    int K = *Size;
    binary_search(index_table, *Size, ID, &found, &i);
-   if (!found)
+
+   while (K >= i + 1)
    {
-      while (K >= i + 1)
-      {
-         index_table[K] = index_table[K - 1];
-         K--;
-      }
-      index_table[i].Identifier = ID;
-      index_table[i].crdt.block_number = block_number;
-      index_table[i].crdt.offset = offset;
+      index_table[K] = index_table[K - 1];
+      K--;
    }
+   index_table[i].Identifier = ID;
+   index_table[i].crdt.block_number = block_number;
+   index_table[i].crdt.offset = offset;
+
    (*Size)++;
-   return 0;  // Added: return value
+   return 0; // Added: return value
 }
 
 // additional functions
@@ -430,14 +457,14 @@ int rand_number(int max, int min)
 void random_name(char name[30])
 {
    int i = rand_number(30, 4);
-   
+
    // FIXED: Start from 0 and add null terminator
    for (int j = 0; j < i; j++)
    {
       int k = rand_number(26, 1);
       name[j] = k + 64;
    }
-   name[i] = '\0';  // Added: null terminator
+   name[i] = '\0'; // Added: null terminator
 }
 
 int isLeapYear(int year)
@@ -627,24 +654,24 @@ int save_indextable(Pr_index index_table[], int Size, char *fname, int *C31)
 {
    *C31 = 0;
    TOF_ip *F;
-   
+
    // Open file for writing (create new)
    Open_TOF(&F, fname, 'N');
-   
+
    block_ip buf;
    buf.Nb = 0;
-   
+
    // Start from block 1
    int current_block = 1;
 
    for (int i = 0; i < Size; i++)
    {
       if (buf.Nb >= 40)
-      { 
+      {
          // Block is full, write it
          WriteBlock_ip(F, current_block, &buf);
          (*C31)++;
-         
+
          // Reset buffer for next block
          buf.Nb = 0;
          current_block++;
@@ -665,9 +692,9 @@ int save_indextable(Pr_index index_table[], int Size, char *fname, int *C31)
    }
    else
    {
-       // If no data was written at all, we still need at least 1 block
-       WriteBlock_ip(F, 1, &buf);
-       (*C31)++;
+      // If no data was written at all, we still need at least 1 block
+      WriteBlock_ip(F, 1, &buf);
+      (*C31)++;
    }
 
    // Update header with total blocks
@@ -680,10 +707,9 @@ int save_indextable(Pr_index index_table[], int Size, char *fname, int *C31)
    printf("Index table saved successfully to %s\n", fname);
    printf("Total blocks written: %d\n", *C31);
    printf("Total records saved: %d\n", Size);
-   
+
    return 0;
 }
-
 
 int loadindextable(char *filename, Pr_index indextable[], int *Size, int *C32)
 {
@@ -693,17 +719,18 @@ int loadindextable(char *filename, Pr_index indextable[], int *Size, int *C32)
 
    // Open existing file
    Open_TOF(&F, filename, 'E');
-   
+
    block_ip buf;
    int Number_of_blocks;
 
    Number_of_blocks = getHeader_ip(F, "nblk");
 
    // Validate number of blocks
-   if (Number_of_blocks <= 0) {
-       printf("No blocks to read in index file %s\n", filename);
-       Close_TOF(F);
-       return 0; // Success - just empty file
+   if (Number_of_blocks <= 0)
+   {
+      printf("No blocks to read in index file %s\n", filename);
+      Close_TOF(F);
+      return 0; // Success - just empty file
    }
 
    printf("Loading index table: %d blocks to read\n", Number_of_blocks);
@@ -712,11 +739,12 @@ int loadindextable(char *filename, Pr_index indextable[], int *Size, int *C32)
    {
       ReadBlock_ip(F, i, &buf);
       (*C32)++;
-      
+
       for (int j = 0; j < buf.Nb; j++)
       {
          // Check array bounds - CORRECTED
-         if (*Size >= 5000) {
+         if (*Size >= 5000)
+         {
             printf("Warning: Index table full at 5000 entries\n");
             Close_TOF(F);
             return -1; // Error: array full
@@ -732,18 +760,17 @@ int loadindextable(char *filename, Pr_index indextable[], int *Size, int *C32)
 
    printf("Loaded %d index entries from %s\n", *Size, filename);
    printf("Total blocks read: %d\n", *C32);
-   
+
    return 0; // Return success
 }
-int Search_StuDentID(int StudentID,  Pr_index indextable[], bool *found, int *number_of_block, int *offset, int *C33, int Size)
+int Search_StuDentID(int StudentID, Pr_index indextable[], bool *found, int *number_of_block, int *offset, int *C33, int Size)
 {
-   *C33=0;
-   
+   *C33 = 0;
+
    int position;
-   
 
    binary_search(indextable, Size, StudentID, found, &position);
-   
+
    if (*found)
    {
       *number_of_block = indextable[position].crdt.block_number;
@@ -758,24 +785,24 @@ int insert_newStudent(char *filename, Pr_index indextable[], int Gender,
                       DateS Date_Birth,
                       bool Resident_UC, int *C34)
 {
-   *C34=0;
+   *C34 = 0;
    int Size;
    bool found;
    int position;
    char *fname = "STUDENTS_ESI.bin";
-   
+
    int Student_ID;
-   
+
    do
    {
       Student_ID = rand_number(9000, 1000);
       binary_search(indextable, Size, Student_ID, &found, &position);
    } while (found); // Continue until we find a unique ID
-   
+
    t_LnOVS *F;
    long last_block;
    block buf;
-   
+
    Open(&F, fname, 'E');
    last_block = getHeader(F, "tail");
    ReadBlock(F, last_block, &buf);
@@ -800,13 +827,13 @@ int insert_newStudent(char *filename, Pr_index indextable[], int Gender,
       buf.Nb++;
       setHeader(F, "freepos", buf.Nb);
       WriteBlock(F, last_block, &buf);
-       (*C34)++;
+      (*C34)++;
    }
    else
    {
-     long j = last_block; 
+      long j = last_block;
       last_block = AllocBlock(F);
-      buf.next = last_block; 
+      buf.next = last_block;
       WriteBlock(F, j, &buf);
       (*C34)++;
       ReadBlock(F, last_block, &buf);
@@ -829,32 +856,31 @@ int insert_newStudent(char *filename, Pr_index indextable[], int Gender,
       strcpy(buf.tab[buf.Nb].Speciality, Speciality);
 
       buf.tab[buf.Nb].Resident_UC = Resident_UC;
-      buf.next = -1; 
+      buf.next = -1;
       buf.Nb++;
       WriteBlock(F, last_block, &buf);
       (*C34)++;
    }
-   
+
    setHeader(F, "freepos", buf.Nb);
    setHeader(F, "tail", last_block);
    Insert_Pr_index(indextable, &Size, Student_ID, last_block, buf.Nb - 1);
-   
-  
+
    Close(F);
-   
-   return 0;  // Added: return value
+
+   return 0; // Added: return value
 }
 
 int Delete_from_index(Pr_index indextable[], int *Size, int StudentID)
 {
-   bool found; 
-   int position; 
-  
+   bool found;
+   int position;
+
    binary_search(indextable, *Size, StudentID, &found, &position);
-   
+
    if (!found)
    {
-      return 0; 
+      return 0;
    }
    else
    {
@@ -862,34 +888,34 @@ int Delete_from_index(Pr_index indextable[], int *Size, int StudentID)
       {
          indextable[k] = indextable[k + 1];
       }
-      (*Size)--; 
-      return 1; 
+      (*Size)--;
+      return 1;
    }
 }
 
 int Delete_by_student_ID(Pr_index indextable[], int *Size, int StudentID, char *fname, int *C35)
 {
    *C35 = 0;
-   bool found; 
-   int position; 
-   
+   bool found;
+   int position;
+
    binary_search(indextable, *Size, StudentID, &found, &position);
-   
+
    if (!found)
    {
-      return 0; 
+      return 0;
    }
    else
    {
-      t_LnOVS *F; 
+      t_LnOVS *F;
       Open(&F, fname, 'E');
-      block buf, bufl; 
+      block buf, bufl;
       long last_block = getHeader(F, "tail");
       long first_block = getHeader(F, "head");
-      
+
       ReadBlock(F, indextable[position].crdt.block_number, &buf);
       (*C35)++;
-      
+
       if (first_block == last_block && buf.Nb == 1)
       {
          setHeader(F, "tail", -1);
@@ -901,14 +927,14 @@ int Delete_by_student_ID(Pr_index indextable[], int *Size, int StudentID, char *
          {
             if (indextable[position].crdt.offset == buf.Nb - 1)
             {
-               buf.Nb--; 
+               buf.Nb--;
             }
             else
             {
                buf.tab[indextable[position].crdt.offset] = buf.tab[buf.Nb - 1];
                buf.Nb--;
             }
-            WriteBlock(F, last_block, &buf);  
+            WriteBlock(F, last_block, &buf);
             (*C35)++;
          }
          else
@@ -916,10 +942,10 @@ int Delete_by_student_ID(Pr_index indextable[], int *Size, int StudentID, char *
             ReadBlock(F, last_block, &bufl);
             (*C35)++;
             buf.tab[indextable[position].crdt.offset] = bufl.tab[bufl.Nb - 1];
-            WriteBlock(F, indextable[position].crdt.block_number, &buf);  
+            WriteBlock(F, indextable[position].crdt.block_number, &buf);
             (*C35)++;
-            bufl.Nb--; 
-            
+            bufl.Nb--;
+
             if (bufl.Nb == 0)
             {
                setHeader(F, "tail", bufl.prev);
@@ -931,9 +957,9 @@ int Delete_by_student_ID(Pr_index indextable[], int *Size, int StudentID, char *
             }
          }
       }
-      
+
       Close(F);
-      return 1;  // Added: return value
+      return 1; // Added: return value
    }
 }
 
@@ -948,7 +974,7 @@ int binary_searchm_ulitple(Pr_index index_table[], int size, int key, bool *foun
    int min = 0, max = size - 1;
    int middle;
    *found = false;
-   
+
    while (min <= max)
    {
       middle = min + (max - min) / 2;
@@ -981,55 +1007,53 @@ int Insert_Pr_index_multiples(Pr_index index_table[], int *Size, int ID, int blo
    bool found;
    int i;
    int K = *Size;
-   
+
    binary_search(index_table, *Size, ID, &found, &i);
-  
+
    while (K >= i + 1)
    {
       index_table[K] = index_table[K - 1];
       K--;
    }
-   
+
    index_table[i].Identifier = ID;
    index_table[i].crdt.block_number = block_number;
    index_table[i].crdt.offset = offset;
-   
+
    (*Size)++;
-   return 0;  // Added: return value
+   return 0; // Added: return value
 }
 
-int modification_family_name(int StudentID, char *firstname, Pr_index indextable[], int Size, char *fname)
+int modification_first_name(int StudentID, char *firstname, Pr_index indextable[], int Size, char *fname)
 {
    bool found;
    int position;
-   
+
    binary_search(indextable, Size, StudentID, &found, &position);
-   
+
    if (!found)
    {
-      return 0;  // Student not found
+      return 0; // Student not found
    }
    else
    {
       t_LnOVS *F;
-      Open(&F, fname, 'E');  // 'E' for existing file
+      Open(&F, fname, 'E'); // 'E' for existing file
       block buf;
-      
+
       ReadBlock(F, indextable[position].crdt.block_number, &buf);
-      
+
       // Update the family name
       strcpy(buf.tab[indextable[position].crdt.offset].First_Name, firstname);
-      
+
       // Write back the updated block
       WriteBlock(F, indextable[position].crdt.block_number, &buf);
-      
+
       // Close the file
       Close(F);
-      
-      return 1;  // Success
+
+      return 1; // Success
    }
 }
 
 #endif // MAINLIBRARY_H
-
-
