@@ -4,12 +4,66 @@
 #include <stdbool.h>
 #include <time.h>
 #include <ctype.h>
+#include <stdarg.h>
 #include "mainLibrary.h"
+
+// Global variables
+block buf;
+char filename[50];
+int C2, C31, C32, C33, C34, C35, C36;
+
+#define MAX_INDEX 10000
+Pr_index index_pr[MAX_INDEX];
+Pr_index index_Yearbirth[MAX_INDEX];
+Pr_index index_Datebirth[MAX_INDEX];
+Pr_index index_Monthbirth[MAX_INDEX];
+Pr_index index_Wilayabirth[MAX_INDEX];
+Pr_index index_Gender[MAX_INDEX];
+Pr_index index_BooldType[MAX_INDEX];
+Pr_index index_YearStudy[MAX_INDEX];
+Pr_index index_Speciality[MAX_INDEX];
+
+int index_size = 0;
+int index_size1 = 0;
+int index_size2 = 0;
+int index_size3 = 0;
+int index_size4 = 0;
+int index_size5 = 0;
+int index_size6 = 0;
+int index_size7 = 0;
+int index_size8 = 0;
+char *fname = "STUDENTS_ESI.bin";
+char *fname1 = "StudentID_INDEX.idx";
+char *fname2 = "YearBirth_INDEX.idx";
+char *fname3 = "DateBirth_INDEX.idx";
+char *fname4 = "MonthBirth_INDEX.idx";
+char *fname5 = "WilayaBirth_INDEX.idx";
+char *fname6 = "Gender_INDEX.idx";
+char *fname7 = "BloodType_INDEX.idx";           
+char *fname8 = "YearStudy_INDEX.idx";
+char *fname9 = "Speciality_INDEX.idx";
+
+int current_main_menu_selection = 0;
+int current_submenu_selection = 0;
+// Add this helper function near the top
+char* format(const char* format, ...)
+{
+    static char buffer[256];
+    va_list args;
+    va_start(args, format);
+    vsnprintf(buffer, sizeof(buffer), format, args);
+    va_end(args);
+    return buffer;
+}
+
 int get_terminal_width();
 int get_terminal_height();
 void gotoxy(int x, int y);
 void set_color(int color);
 void hide_cursor();
+void showTOFNavigationMenu(int *currentPage, int *cursorIndex, int *continueDisplay,
+                          int totalRecords, int totalPages, int recordsPerPage,
+                          Pr_index *tofRecords, char *filename);
 void show_cursor();
 #ifdef _WIN32
 #include <windows.h>
@@ -33,7 +87,7 @@ void show_cursor();
 #define COLOR_MAGENTA 5
 #define COLOR_CYAN 6
 #define COLOR_WHITE 7
-#define COLOR_GRAY 8  // Add this line
+#define COLOR_GRAY 8 // Add this line
 
 // ANSI Color Codes for terminal (for Linux/macOS)
 #define ANSI_RESET "\033[0m"
@@ -45,7 +99,11 @@ void show_cursor();
 #define ANSI_CYAN "\033[36m"
 #define ANSI_WHITE "\033[37m"
 #define ANSI_BLACK "\033[30m"
-#define ANSI_GRAY "\033[90m"  // Add this lin
+#define ANSI_GRAY "\033[90m" // Add this lin
+
+void showNavigationMenu(int *currentPage, int *cursorIndex, int *continueDisplay,
+                        int tableSize, int totalPages, int recordsPerPage,
+                        Pr_index *indexTable);
 /**
  * Display TOF_ip index file with organized paging
  * @param filename Name of the TOF_ip file to display
@@ -73,419 +131,11 @@ void show_cursor();
 /**
  * Display TOF_ip index file with organized paging - Enhanced version
  */
-void displayTOFIndexFile(char *filename, int recordsPerPage)
-{
-    TOF_ip *F;
-    int currentPage = 1;
-    int totalRecords = 0;
-    int totalBlocks = 0;
-    int cursorLine = 1;
-    
-    // Open the TOF_ip file
-    Open_TOF(&F, filename, 'E');
-    
-    // Get total blocks
-    totalBlocks = getHeader_ip(F, "nblk");
-    
-    // Count total records
-    block_ip buf;
-    for (int i = 1; i <= totalBlocks; i++)
-    {
-        ReadBlock_ip(F, i, &buf);
-        totalRecords += buf.Nb;
-    }
-    
-    // Calculate total pages
-    int totalPages = (totalRecords + recordsPerPage - 1) / recordsPerPage;
-    if (totalPages == 0) totalPages = 1;
-    
-    int width = get_terminal_width();
-    int height = get_terminal_height();
-    int center_x = width / 2;
-    
-    int continueDisplay = 1;
-    
-    while (continueDisplay)
-    {
-        CLEAR_SCREEN();
-        hide_cursor();
-        
-        // ========== TOP SECTION: HEADER AND STATS ==========
-        // Top border
-        set_color(COLOR_CYAN);
-        for (int i = 0; i < width; i++) printf("=");
-        printf("\n");
-        
-        // Title
-        gotoxy(center_x - 15, 2);
-        set_color(COLOR_MAGENTA);
-        printf("TOF INDEX FILE VIEWER");
-        
-        // File info box
-        gotoxy(center_x - 25, 4);
-        set_color(COLOR_YELLOW);
-        printf("+----------------------------------------------------+\n");
-        
-        gotoxy(center_x - 25, 5);
-        printf("|  File: %-40s  |\n", filename);
-        
-        gotoxy(center_x - 25, 6);
-        printf("+----------------------------------------------------+\n");
-        
-        // Statistics
-        gotoxy(center_x - 25, 7);
-        set_color(COLOR_CYAN);
-        printf("|  Blocks: %-4d | Records: %-6d | Page: %-3d/%-3d  |\n",
-               totalBlocks, totalRecords, currentPage, totalPages);
-        
-        gotoxy(center_x - 25, 8);
-        printf("+----------------------------------------------------+\n");
-        
-        // ========== MIDDLE SECTION: DATA TABLE ==========
-        // Calculate start and end positions for current page
-        int recordsDisplayed = 0;
-        int currentRecord = 0;
-        int startRecord = (currentPage - 1) * recordsPerPage;
-        int endRecord = startRecord + recordsPerPage;
-        
-        // Table header
-        int tableWidth = 68;
-        int tableStartX = center_x - (tableWidth / 2);
-        
-        gotoxy(tableStartX, 10);
-        set_color(COLOR_GREEN);
-        printf("+------+------------+--------------+----------------+------------------+\n");
-        
-        gotoxy(tableStartX, 11);
-        set_color(COLOR_YELLOW);
-        printf("|  #   |    ID      |    Block     |    Offset      |  File Position   |\n");
-        
-        gotoxy(tableStartX, 12);
-        set_color(COLOR_GREEN);
-        printf("+------+------------+--------------+----------------+------------------+\n");
-        
-        // Display records
-        int lineY = 13;
-        for (int blockNum = 1; blockNum <= totalBlocks && recordsDisplayed < recordsPerPage; blockNum++)
-        {
-            ReadBlock_ip(F, blockNum, &buf);
-            
-            for (int offset = 0; offset < buf.Nb && recordsDisplayed < recordsPerPage; offset++)
-            {
-                currentRecord++;
-                
-                if (currentRecord > startRecord && currentRecord <= endRecord)
-                {
-                    int isCursorLine = (cursorLine == currentRecord);
-                    long filePosition = sizeof(header_ip) + (blockNum - 1) * sizeof(block_ip) + offset * sizeof(rec_ip);
-                    
-                    gotoxy(tableStartX, lineY);
-                    
-                    if (isCursorLine)
-                    {
-                        set_color(COLOR_GREEN);
-                        printf("| >%-4d", currentRecord);
-                        set_color(COLOR_WHITE);
-                        printf("| %-10d | %-12d | %-14d | %-16ld |\n",
-                               buf.tab[offset].Identifier,
-                               buf.tab[offset].crdt.block_number,
-                               buf.tab[offset].crdt.offset,
-                               filePosition);
-                    }
-                    else
-                    {
-                        printf("|  %-4d| %-10d | %-12d | %-14d | %-16ld |\n",
-                               currentRecord,
-                               buf.tab[offset].Identifier,
-                               buf.tab[offset].crdt.block_number,
-                               buf.tab[offset].crdt.offset,
-                               filePosition);
-                    }
-                    
-                    lineY++;
-                    recordsDisplayed++;
-                }
-            }
-        }
-        
-        // Table footer
-        gotoxy(tableStartX, lineY);
-        set_color(COLOR_GREEN);
-        printf("+------+------------+--------------+----------------+------------------+\n");
-        
-        // Cursor position info
-        if (cursorLine > 0 && cursorLine <= totalRecords)
-        {
-            gotoxy(center_x - 20, lineY + 2);
-            set_color(COLOR_CYAN);
-            printf("Current Cursor: Record %d of %d", cursorLine, totalRecords);
-        }
-        
-        // ========== BOTTOM SECTION: NAVIGATION ==========
-        int navStartY = lineY + 4;
-        
-        // Clear navigation area
-        for (int i = navStartY; i < height - 1; i++)
-        {
-            gotoxy(0, i);
-            printf("%-*s", width, "");
-        }
-        
-        // Navigation box
-        gotoxy(center_x - 30, navStartY);
-        set_color(COLOR_BLUE);
-        printf("+--------------------------------------------------------------+\n");
-        
-        gotoxy(center_x - 30, navStartY + 1);
-        printf("|                     NAVIGATION MENU                          |\n");
-        
-        gotoxy(center_x - 30, navStartY + 2);
-        printf("+--------------------------------------------------------------+\n");
-        
-        // Navigation options with cursor selection
-        char *navOptions[] = {
-            " Next Page        ",
-            " Previous Page    ",
-            " Go to Page       ",
-            " Set Cursor Line  ",
-            " Move Cursor Up   ",
-            " Move Cursor Down ",
-            " View Details     ",
-            " Quit             "
-        };
-        
-        int navCursor = 0;
-        int navSelected = -1;
-        
-        while (navSelected == -1)
-        {
-            for (int i = 0; i < 8; i++)
-            {
-                gotoxy(center_x - 30, navStartY + 3 + i);
-                
-                if (i == navCursor)
-                {
-                    set_color(COLOR_GREEN);
-                    printf("| > %-56s |\n", navOptions[i]);
-                }
-                else
-                {
-                    set_color(COLOR_WHITE);
-                    printf("|   %-56s |\n", navOptions[i]);
-                }
-            }
-            
-            gotoxy(center_x - 30, navStartY + 11);
-            set_color(COLOR_BLUE);
-            printf("+--------------------------------------------------------------+\n");
-            
-            gotoxy(center_x - 25, navStartY + 12);
-            set_color(COLOR_YELLOW);
-            printf("Use ARROW KEYS to navigate, ENTER to select");
-            
-            // Get navigation input
-            show_cursor();
-            #ifdef _WIN32
-            int key = _getch();
-            if (key == 224 || key == 0)
-            {
-                key = _getch();
-                if (key == 72 && navCursor > 0) // Up
-                {
-                    navCursor--;
-                }
-                else if (key == 80 && navCursor < 7) // Down
-                {
-                    navCursor++;
-                }
-            }
-            else if (key == 13) // Enter
-            {
-                navSelected = navCursor;
-            }
-            else if (key == 27) // ESC
-            {
-                continueDisplay = 0;
-                break;
-            }
-            #else
-            system("stty raw");
-            int key = getchar();
-            system("stty cooked");
-            
-            if (key == 27)
-            {
-                system("stty raw");
-                getchar(); // Skip [
-                key = getchar();
-                system("stty cooked");
-                
-                if (key == 65 && navCursor > 0) // Up
-                {
-                    navCursor--;
-                }
-                else if (key == 66 && navCursor < 7) // Down
-                {
-                    navCursor++;
-                }
-            }
-            else if (key == 10) // Enter
-            {
-                navSelected = navCursor;
-            }
-            #endif
-            hide_cursor();
-        }
-        
-        // Process selected navigation option
-        if (navSelected != -1)
-        {
-            switch (navSelected)
-            {
-            case 0: // Next Page
-                if (currentPage < totalPages)
-                {
-                    currentPage++;
-                    cursorLine = (currentPage - 1) * recordsPerPage + 1;
-                }
-                break;
-                
-            case 1: // Previous Page
-                if (currentPage > 1)
-                {
-                    currentPage--;
-                    cursorLine = (currentPage - 1) * recordsPerPage + 1;
-                }
-                break;
-                
-            case 2: // Go to Page
-                {
-                    // Show input prompt
-                    gotoxy(center_x - 15, navStartY + 14);
-                    set_color(COLOR_YELLOW);
-                    printf("Enter page (1-%d): ", totalPages);
-                    show_cursor();
-                    int newPage;
-                    scanf("%d", &newPage);
-                    if (newPage >= 1 && newPage <= totalPages)
-                    {
-                        currentPage = newPage;
-                        cursorLine = (currentPage - 1) * recordsPerPage + 1;
-                    }
-                }
-                break;
-                
-            case 3: // Set Cursor Line
-                {
-                    gotoxy(center_x - 20, navStartY + 14);
-                    set_color(COLOR_YELLOW);
-                    printf("Enter line (1-%d): ", totalRecords);
-                    show_cursor();
-                    int newCursor;
-                    scanf("%d", &newCursor);
-                    if (newCursor >= 1 && newCursor <= totalRecords)
-                    {
-                        cursorLine = newCursor;
-                        currentPage = (cursorLine - 1) / recordsPerPage + 1;
-                    }
-                }
-                break;
-                
-            case 4: // Move Cursor Up
-                if (cursorLine > 1)
-                {
-                    cursorLine--;
-                    currentPage = (cursorLine - 1) / recordsPerPage + 1;
-                }
-                break;
-                
-            case 5: // Move Cursor Down
-                if (cursorLine < totalRecords)
-                {
-                    cursorLine++;
-                    currentPage = (cursorLine - 1) / recordsPerPage + 1;
-                }
-                break;
-                
-            case 6: // View Details
-                if (cursorLine > 0 && cursorLine <= totalRecords)
-                {
-                    // Find the record
-                    int tempRecord = 0;
-                    int foundBlock = 0, foundOffset = 0;
-                    rec_ip foundRec;
-                    
-                    for (int blockNum = 1; blockNum <= totalBlocks && !foundBlock; blockNum++)
-                    {
-                        ReadBlock_ip(F, blockNum, &buf);
-                        for (int offset = 0; offset < buf.Nb && !foundBlock; offset++)
-                        {
-                            tempRecord++;
-                            if (tempRecord == cursorLine)
-                            {
-                                foundBlock = blockNum;
-                                foundOffset = offset;
-                                foundRec = buf.tab[offset];
-                                break;
-                            }
-                        }
-                    }
-                    
-                    if (foundBlock)
-                    {
-                        CLEAR_SCREEN();
-                        gotoxy(center_x - 20, 5);
-                        set_color(COLOR_MAGENTA);
-                        printf("INDEX ENTRY DETAILS\n");
-                        
-                        gotoxy(center_x - 25, 7);
-                        set_color(COLOR_CYAN);
-                        printf("+----------------------------------------------------+\n");
-                        
-                        gotoxy(center_x - 25, 8);
-                        printf("|  Record: %-42d |\n", cursorLine);
-                        
-                        gotoxy(center_x - 25, 9);
-                        printf("|  ID: %-45d |\n", foundRec.Identifier);
-                        
-                        gotoxy(center_x - 25, 10);
-                        printf("|  Block: %-43d |\n", foundRec.crdt.block_number);
-                        
-                        gotoxy(center_x - 25, 11);
-                        printf("|  Offset: %-42d |\n", foundRec.crdt.offset);
-                        
-                        gotoxy(center_x - 25, 12);
-                        printf("+----------------------------------------------------+\n");
-                        
-                        gotoxy(center_x - 15, 15);
-                        set_color(COLOR_YELLOW);
-                        printf("Press Enter to continue...");
-                        getchar();
-                        getchar();
-                    }
-                }
-                break;
-                
-            case 7: // Quit
-                continueDisplay = 0;
-                break;
-            }
-        }
-    }
-    
-    // Close file
-    Close_TOF(F);
-    
-    // Clear and show exit message
-    CLEAR_SCREEN();
-    gotoxy(center_x - 20, height / 2);
-    set_color(COLOR_GREEN);
-    printf("Index File Display Completed!\n");
-    SLEEP_MS(1000);
-}
-
 /**
- * Display Pr_index table with enhanced UI and cursor control
+ * Display Pr_index table with organized layout - Final corrected version
+ */
+/**
+ * Display Pr_index table with organized layout - Fixed record details display
  */
 void displayPrIndexTableWithData(Pr_index *indexTable, int tableSize,
                                  char *dataFilename, int recordsPerPage)
@@ -493,163 +143,97 @@ void displayPrIndexTableWithData(Pr_index *indexTable, int tableSize,
     int currentPage = 1;
     int cursorIndex = 0;
     int totalPages = (tableSize + recordsPerPage - 1) / recordsPerPage;
-    if (totalPages == 0) totalPages = 1;
-    
+    if (totalPages == 0)
+        totalPages = 1;
+
     // Open the main data file
     t_LnOVS *dataFile = NULL;
     if (dataFilename != NULL && strlen(dataFilename) > 0)
     {
         Open(&dataFile, dataFilename, 'E');
     }
-    
+
     int width = get_terminal_width();
     int height = get_terminal_height();
     int center_x = width / 2;
-    
+
     int continueDisplay = 1;
-    
+
     while (continueDisplay)
     {
         CLEAR_SCREEN();
         hide_cursor();
-        
-        // ========== TOP SECTION: HEADER AND STATS ==========
-        // Top border
-        set_color(COLOR_CYAN);
-        for (int i = 0; i < width; i++) printf("=");
-        printf("\n");
-        
-        // Title
-        gotoxy(center_x - 20, 2);
+
+        // ========== HEADER ==========
+        gotoxy(center_x - 20, 1);
         set_color(COLOR_MAGENTA);
         printf("PRIMARY INDEX TABLE WITH RECORD DATA");
-        
-        // Stats box
-        gotoxy(center_x - 30, 4);
-        set_color(COLOR_YELLOW);
-        printf("+--------------------------------------------------------------+\n");
-        
-        gotoxy(center_x - 30, 5);
-        printf("|                         STATISTICS                           |\n");
-        
-        gotoxy(center_x - 30, 6);
-        printf("+--------------------------------------------------------------+\n");
-        
-        gotoxy(center_x - 30, 7);
+
+        gotoxy(center_x - 25, 2);
         set_color(COLOR_CYAN);
-        printf("|  Records: %-6d | Page: %-3d/%-3d | Cursor: %-4d                |\n",
+        for (int i = 0; i < 50; i++)
+            printf("=");
+        printf("\n");
+
+        // ========== STATISTICS ==========
+        gotoxy(center_x - 25, 4);
+        set_color(COLOR_WHITE);
+        printf("Records: %-5d  Page: %-2d/%-2d  Cursor: Index %-4d",
                tableSize, currentPage, totalPages, cursorIndex + 1);
-        
-        gotoxy(center_x - 30, 8);
-        printf("|  Data File: %-52s |\n", dataFilename ? dataFilename : "None");
-        
-        gotoxy(center_x - 30, 9);
-        printf("+--------------------------------------------------------------+\n");
-        
-        // ========== MIDDLE SECTION: CURSOR RECORD DETAILS ==========
-        int detailStartY = 11;
-        
-        if (cursorIndex >= 0 && cursorIndex < tableSize && 
-            dataFile != NULL && indexTable[cursorIndex].crdt.block_number > 0)
-        {
-            block dataBlock;
-            Pr_cor coords = indexTable[cursorIndex].crdt;
-            ReadBlock(dataFile, coords.block_number, &dataBlock);
-            
-            if (coords.offset >= 0 && coords.offset < dataBlock.Nb)
-            {
-                rec studentRecord = dataBlock.tab[coords.offset];
-                
-                if (studentRecord.Student_ID != -1)
-                {
-                    gotoxy(center_x - 35, detailStartY);
-                    set_color(COLOR_GREEN);
-                    printf("+----------------------------------------------------------------------+\n");
-                    
-                    gotoxy(center_x - 35, detailStartY + 1);
-                    printf("|                    CURSOR RECORD DETAILS                           |\n");
-                    
-                    gotoxy(center_x - 35, detailStartY + 2);
-                    printf("+----------------------------------------------------------------------+\n");
-                    
-                    gotoxy(center_x - 35, detailStartY + 3);
-                    printf("|  ID: %-5d  Name: %s %-30s |\n", 
-                           studentRecord.Student_ID,
-                           studentRecord.Family_Name,
-                           studentRecord.First_Name);
-                    
-                    gotoxy(center_x - 35, detailStartY + 4);
-                    printf("|  Birth: %02d/%02d/%04d  Gender: %-6s  Wilaya: %-15s |\n", 
-                           studentRecord.Date_Birth.day,
-                           studentRecord.Date_Birth.month,
-                           studentRecord.Date_Birth.year,
-                           studentRecord.Gender == 1 ? "Male" : "Female",
-                           studentRecord.Wilaya_Birth);
-                    
-                    gotoxy(center_x - 35, detailStartY + 5);
-                    printf("|  Year: %-5s  Speciality: %-35s |\n", 
-                           studentRecord.Year_Study, studentRecord.Speciality);
-                    
-                    gotoxy(center_x - 35, detailStartY + 6);
-                    printf("|  Blood: %-6s  Resident: %-3s  Block: %-3d  Offset: %-3d    |\n",
-                           studentRecord.Blood_Type,
-                           studentRecord.Resident_UC ? "Yes" : "No",
-                           coords.block_number, coords.offset);
-                    
-                    gotoxy(center_x - 35, detailStartY + 7);
-                    printf("+----------------------------------------------------------------------+\n");
-                    
-                    detailStartY += 9; // Move down for table
-                }
-            }
-        }
-        else
-        {
-            detailStartY = 11;
-        }
-        
-        // ========== MIDDLE SECTION: DATA TABLE ==========
+
+        gotoxy(center_x - 25, 5);
+        printf("Data File: %s", dataFilename ? dataFilename : "None");
+
+        gotoxy(center_x - 25, 6);
+        set_color(COLOR_CYAN);
+        for (int i = 0; i < 50; i++)
+            printf("-");
+        printf("\n\n");
+
+        // ========== INDEX TABLE ==========
         int startIndex = (currentPage - 1) * recordsPerPage;
         int endIndex = startIndex + recordsPerPage;
-        if (endIndex > tableSize) endIndex = tableSize;
-        
+        if (endIndex > tableSize)
+            endIndex = tableSize;
+
         // Table header
-        int tableWidth = 60;
+        int tableWidth = 68;
         int tableStartX = center_x - (tableWidth / 2);
-        
-        gotoxy(tableStartX, detailStartY);
-        set_color(COLOR_MAGENTA);
-        printf("+----+------------+----------+----------+--------------+--------------------+\n");
-        
-        gotoxy(tableStartX, detailStartY + 1);
-        set_color(COLOR_YELLOW);
-        printf("| #  |    ID      |  Block   |  Offset  |    Status    |   Record Preview   |\n");
-        
-        gotoxy(tableStartX, detailStartY + 2);
-        set_color(COLOR_MAGENTA);
-        printf("+----+------------+----------+----------+--------------+--------------------+\n");
-        
+        int tableStartY = 8;
+
+        gotoxy(tableStartX, tableStartY);
+        set_color(COLOR_BLUE);
+        printf("+----+------------+----------+----------+--------------+----------------------+\n");
+
+        gotoxy(tableStartX, tableStartY + 1);
+        set_color(COLOR_CYAN);
+        printf("| #  |    ID      |  Block   |  Offset  |    Status    |   Record Preview     |\n");
+
+        gotoxy(tableStartX, tableStartY + 2);
+        set_color(COLOR_BLUE);
+        printf("+----+------------+----------+----------+--------------+----------------------+\n");
+
         // Display records
-        int lineY = detailStartY + 3;
+        int lineY = tableStartY + 3;
         for (int i = startIndex; i < endIndex; i++)
         {
             gotoxy(tableStartX, lineY);
-            
+
             int isCursorIndex = (i == cursorIndex);
             char status[20] = "Unknown";
-            char namePreview[20] = "N/A";
-            
+            char namePreview[22] = "N/A";
+
             // Try to read actual record data
             if (dataFile != NULL && indexTable[i].crdt.block_number > 0)
             {
                 block dataBlock;
                 Pr_cor coords = indexTable[i].crdt;
                 ReadBlock(dataFile, coords.block_number, &dataBlock);
-                
+
                 if (coords.offset >= 0 && coords.offset < dataBlock.Nb)
                 {
                     rec studentRecord = dataBlock.tab[coords.offset];
-                    
+
                     if (studentRecord.Student_ID == -1)
                     {
                         strcpy(status, "Deleted");
@@ -658,578 +242,1624 @@ void displayPrIndexTableWithData(Pr_index *indexTable, int tableSize,
                     else if (studentRecord.Student_ID != indexTable[i].Identifier)
                     {
                         strcpy(status, "ID Mismatch");
+                        snprintf(namePreview, sizeof(namePreview), "ID:%d", indexTable[i].Identifier);
                     }
                     else
                     {
                         strcpy(status, "Valid");
-                        
-                        // Create name preview
+
+                        // Create compact name preview
                         if (strlen(studentRecord.Family_Name) > 0)
                         {
-                            strncpy(namePreview, studentRecord.Family_Name, 6);
-                            namePreview[6] = '\0';
+                            strncpy(namePreview, studentRecord.Family_Name, 8);
+                            namePreview[8] = '\0';
                             strcat(namePreview, ".");
                             if (strlen(studentRecord.First_Name) > 0)
                             {
-                                strncat(namePreview, studentRecord.First_Name, 1);
+                                strncat(namePreview, &studentRecord.First_Name[0], 1);
                             }
                         }
                     }
                 }
             }
-            
+
             if (isCursorIndex)
             {
                 set_color(COLOR_GREEN);
                 printf("|>%-3d", i + 1);
                 set_color(COLOR_WHITE);
-                printf("| %-10d | %-8d | %-8d | ", 
+                printf("| %-10d | %-8d | %-8d | ",
                        indexTable[i].Identifier,
                        indexTable[i].crdt.block_number,
                        indexTable[i].crdt.offset);
-                
+
                 // Status color
-                if (strcmp(status, "Valid") == 0) set_color(COLOR_GREEN);
-                else if (strcmp(status, "Deleted") == 0) set_color(COLOR_RED);
-                else if (strcmp(status, "ID Mismatch") == 0) set_color(COLOR_YELLOW);
-                else set_color(COLOR_WHITE);
-                
-                printf("%-12s | %-18s |\n", status, namePreview);
+                if (strcmp(status, "Valid") == 0)
+                    set_color(COLOR_GREEN);
+                else if (strcmp(status, "Deleted") == 0)
+                    set_color(COLOR_RED);
+                else if (strcmp(status, "ID Mismatch") == 0)
+                    set_color(COLOR_YELLOW);
+                else
+                    set_color(COLOR_WHITE);
+
+                printf("%-12s | ", status);
+                set_color(COLOR_WHITE);
+                printf("%-20s |\n", namePreview);
             }
             else
             {
                 set_color(COLOR_WHITE);
-                printf("| %-3d| %-10d | %-8d | %-8d | ", 
+                printf("| %-3d| %-10d | %-8d | %-8d | ",
                        i + 1,
                        indexTable[i].Identifier,
                        indexTable[i].crdt.block_number,
                        indexTable[i].crdt.offset);
-                
+
                 // Status color
-                if (strcmp(status, "Valid") == 0) set_color(COLOR_GREEN);
-                else if (strcmp(status, "Deleted") == 0) set_color(COLOR_RED);
-                else if (strcmp(status, "ID Mismatch") == 0) set_color(COLOR_YELLOW);
-                else set_color(COLOR_GRAY);
-                
+                if (strcmp(status, "Valid") == 0)
+                    set_color(COLOR_GREEN);
+                else if (strcmp(status, "Deleted") == 0)
+                    set_color(COLOR_RED);
+                else if (strcmp(status, "ID Mismatch") == 0)
+                    set_color(COLOR_YELLOW);
+                else
+                    set_color(COLOR_GRAY);
+
                 printf("%-12s | ", status);
                 set_color(COLOR_WHITE);
-                printf("%-18s |\n", namePreview);
+                printf("%-20s |\n", namePreview);
             }
-            
+
             lineY++;
         }
-        
-        // Table footer
+
         gotoxy(tableStartX, lineY);
-        set_color(COLOR_MAGENTA);
-        printf("+----+------------+----------+----------+--------------+--------------------+\n");
-        
-        // Page info
-        if (tableSize > 0)
-        {
-            gotoxy(center_x - 20, lineY + 2);
-            set_color(COLOR_CYAN);
-            printf("Page %d/%d: Records %d to %d of %d",
-                   currentPage, totalPages, startIndex + 1, endIndex, tableSize);
-        }
-        
-        // ========== BOTTOM SECTION: NAVIGATION ==========
-        int navStartY = lineY + 4;
-        if (navStartY > height - 10) navStartY = height - 10;
-        
-        // Clear navigation area
-        for (int i = navStartY; i < height - 1; i++)
-        {
-            gotoxy(0, i);
-            printf("%-*s", width, "");
-        }
-        
-        // Navigation box
-        gotoxy(center_x - 30, navStartY);
         set_color(COLOR_BLUE);
-        printf("+--------------------------------------------------------------+\n");
-        
-        gotoxy(center_x - 30, navStartY + 1);
-        printf("|                    NAVIGATION CONTROLS                       |\n");
-        
-        gotoxy(center_x - 30, navStartY + 2);
-        printf("+--------------------------------------------------------------+\n");
-        
-        // Navigation options
-        char *navOptions[] = {
-            " Next Page        ",
-            " Previous Page    ",
-            " Go to Page       ",
-            " Search by ID     ",
-            " Set Cursor       ",
-            " Move Cursor Up   ",
-            " Move Cursor Down ",
-            " Quit             "
-        };
-        
-        int navCursor = 0;
-        int navSelected = -1;
-        
-        while (navSelected == -1)
+        printf("+----+------------+----------+----------+--------------+----------------------+\n");
+
+        // Page info
+        gotoxy(center_x - 20, lineY + 2);
+        set_color(COLOR_CYAN);
+        printf("Page %d/%d: Records %d to %d of %d",
+               currentPage, totalPages, startIndex + 1, endIndex, tableSize);
+
+        // ========== CURRENT RECORD DETAILS (VERTICAL STACK WITH SPACING) ==========
+        int detailsStartY = lineY + 5; // More space after table
+
+        // Clear details area (15 lines)
+        for (int y = detailsStartY; y < detailsStartY + 20; y++)
         {
-            for (int i = 0; i < 8; i++)
-            {
-                gotoxy(center_x - 30, navStartY + 3 + i);
-                
-                if (i == navCursor)
-                {
-                    set_color(COLOR_GREEN);
-                    printf("| > %-56s |\n", navOptions[i]);
-                }
-                else
-                {
-                    set_color(COLOR_WHITE);
-                    printf("|   %-56s |\n", navOptions[i]);
-                }
-            }
-            
-            gotoxy(center_x - 30, navStartY + 11);
-            set_color(COLOR_BLUE);
-            printf("+--------------------------------------------------------------+\n");
-            
-            gotoxy(center_x - 25, navStartY + 12);
-            set_color(COLOR_YELLOW);
-            printf("Use ARROW KEYS to navigate, ENTER to select");
-            
-            // Get navigation input
-            show_cursor();
-            #ifdef _WIN32
-            int key = _getch();
-            if (key == 224 || key == 0)
-            {
-                key = _getch();
-                if (key == 72 && navCursor > 0) // Up
-                {
-                    navCursor--;
-                }
-                else if (key == 80 && navCursor < 7) // Down
-                {
-                    navCursor++;
-                }
-            }
-            else if (key == 13) // Enter
-            {
-                navSelected = navCursor;
-            }
-            else if (key == 27) // ESC
-            {
-                continueDisplay = 0;
-                break;
-            }
-            #else
-            system("stty raw");
-            int key = getchar();
-            system("stty cooked");
-            
-            if (key == 27)
-            {
-                system("stty raw");
-                getchar(); // Skip [
-                key = getchar();
-                system("stty cooked");
-                
-                if (key == 65 && navCursor > 0) // Up
-                {
-                    navCursor--;
-                }
-                else if (key == 66 && navCursor < 7) // Down
-                {
-                    navCursor++;
-                }
-            }
-            else if (key == 10) // Enter
-            {
-                navSelected = navCursor;
-            }
-            #endif
-            hide_cursor();
+            gotoxy(center_x - 25, y);
+            printf("%-50s", " ");
         }
-        
-        // Process selected option
-        if (navSelected != -1)
+
+        if (cursorIndex >= 0 && cursorIndex < tableSize &&
+            dataFile != NULL && indexTable[cursorIndex].crdt.block_number > 0)
         {
-            switch (navSelected)
+            block dataBlock;
+            Pr_cor coords = indexTable[cursorIndex].crdt;
+            ReadBlock(dataFile, coords.block_number, &dataBlock);
+
+            if (coords.offset >= 0 && coords.offset < dataBlock.Nb)
             {
-            case 0: // Next Page
-                if (currentPage < totalPages)
+                rec studentRecord = dataBlock.tab[coords.offset];
+
+                if (studentRecord.Student_ID != -1)
                 {
-                    currentPage++;
-                    cursorIndex = (currentPage - 1) * recordsPerPage;
+                    // Title with spacing
+                    gotoxy(center_x - 25, detailsStartY);
+                    set_color(COLOR_YELLOW);
+                    printf("CURRENT RECORD DETAILS (Index: %d)", cursorIndex + 1);
+
+                    // Empty line after title
+                    gotoxy(center_x - 25, detailsStartY + 1);
+                    printf(" ");
+
+                    // Details - each on its own line with good spacing
+                    int currentLine = detailsStartY + 2;
+
+                    // ID
+                    gotoxy(center_x - 25, currentLine);
+                    set_color(COLOR_WHITE);
+                    printf("\n\t\t\tStudent ID: ");
+                    set_color(COLOR_BLUE);
+                    printf("%d", studentRecord.Student_ID);
+                    currentLine += 2; // Space after each detail
+
+                    // Name
+                    gotoxy(center_x - 25, currentLine);
+                    set_color(COLOR_WHITE);
+                    printf("\n\t\t\tName: ");
+                    set_color(COLOR_CYAN);
+                    printf("%s %s", studentRecord.Family_Name, studentRecord.First_Name);
+                    currentLine += 2;
+
+                    // Birth Date
+                    gotoxy(center_x - 25, currentLine);
+                    set_color(COLOR_WHITE);
+                    printf("\n\t\t\tDate of Birth: ");
+                    set_color(COLOR_CYAN);
+                    printf("%02d/%02d/%04d",
+                           studentRecord.Date_Birth.day,
+                           studentRecord.Date_Birth.month,
+                           studentRecord.Date_Birth.year);
+                    currentLine += 2;
+
+                    // Gender and Wilaya
+                    gotoxy(center_x - 25, currentLine);
+                    set_color(COLOR_WHITE);
+                    printf("\n\t\t\tGender: ");
+                    set_color(COLOR_CYAN);
+                    printf("%s", studentRecord.Gender == 1 ? "Male" : "Female");
+
+                    gotoxy(center_x + 5, currentLine);
+                    set_color(COLOR_WHITE);
+                    printf("\n\t\t\tWilaya: ");
+                    set_color(COLOR_CYAN);
+                    printf("%s", studentRecord.Wilaya_Birth);
+                    currentLine += 2;
+
+                    // Year and Speciality
+                    gotoxy(center_x - 25, currentLine);
+                    set_color(COLOR_WHITE);
+                    printf("\n\t\t\tYear: ");
+                    set_color(COLOR_CYAN);
+                    printf("%s", studentRecord.Year_Study);
+
+                    gotoxy(center_x + 5, currentLine);
+                    set_color(COLOR_WHITE);
+                    printf("\n\t\t\tSpeciality: ");
+                    set_color(COLOR_CYAN);
+                    printf("%s", studentRecord.Speciality);
+                    currentLine += 2;
+
+                    // Blood Type and Resident
+                    gotoxy(center_x - 25, currentLine);
+                    set_color(COLOR_WHITE);
+                    printf("\n\t\t\tBlood Type:");
+                    set_color(COLOR_CYAN);
+                    printf("%s", studentRecord.Blood_Type);
+
+                    gotoxy(center_x + 5, currentLine);
+                    set_color(COLOR_WHITE);
+                    printf("\n\t\t\tResident: ");
+                    set_color(COLOR_CYAN);
+                    printf("%s", studentRecord.Resident_UC ? "Yes" : "No");
+                    currentLine += 2;
+
+                    // Location
+                    gotoxy(center_x - 25, currentLine);
+                    set_color(COLOR_WHITE);
+                    printf("\n\t\t\tLocation: ");
+                    set_color(COLOR_CYAN);
+                    printf("Block %d, Offset %d", coords.block_number, coords.offset);
+                    currentLine += 3;
+
+                    // Separator line
+                    gotoxy(center_x - 25, currentLine);
+
+                    detailsStartY = currentLine + 2; // Update for navigation prompt
                 }
-                break;
-                
-            case 1: // Previous Page
+            }
+        }
+        else
+        {
+            // If no valid record, still show separator
+            gotoxy(center_x - 25, detailsStartY);
+            set_color(COLOR_CYAN);
+            for (int i = 0; i < 50; i++)
+                printf("-");
+            detailsStartY += 2;
+        }
+
+        // ========== NAVIGATION PROMPT (WITH SPACING) ==========
+        int promptY = detailsStartY + 3; // More space after details
+
+        // Clear prompt area
+        for (int y = promptY; y < promptY + 5; y++)
+        {
+            gotoxy(center_x - 25, y);
+            printf("%-50s", " ");
+        }
+
+        gotoxy(center_x - 20, promptY);
+        set_color(COLOR_CYAN);
+        printf("\n\n\t\tPress Enter to continue... ");
+        printf("\n\n");
+
+        gotoxy(center_x - 15, promptY + 1);
+
+        // ========== INPUT HANDLING ==========
+        int keyPressed = 0;
+
+        show_cursor();
+
+#ifdef _WIN32
+        int key = _getch();
+        if (key == 224 || key == 0) // Arrow key
+        {
+            key = _getch();
+            if (key == 72) // Up arrow
+            {
+                if (cursorIndex > 0)
+                {
+                    cursorIndex--;
+                    if (cursorIndex < startIndex)
+                    {
+                        currentPage--;
+                        if (currentPage < 1)
+                            currentPage = 1;
+                    }
+                }
+                keyPressed = 1;
+            }
+            else if (key == 80) // Down arrow
+            {
+                if (cursorIndex < tableSize - 1)
+                {
+                    cursorIndex++;
+                    if (cursorIndex >= endIndex)
+                    {
+                        currentPage++;
+                        if (currentPage > totalPages)
+                            currentPage = totalPages;
+                    }
+                }
+                keyPressed = 1;
+            }
+            else if (key == 75) // Left arrow - Previous page
+            {
                 if (currentPage > 1)
                 {
                     currentPage--;
                     cursorIndex = (currentPage - 1) * recordsPerPage;
                 }
-                break;
-                
-            case 2: // Go to Page
+                keyPressed = 1;
+            }
+            else if (key == 77) // Right arrow - Next page
+            {
+                if (currentPage < totalPages)
                 {
-                    gotoxy(center_x - 15, navStartY + 14);
-                    set_color(COLOR_YELLOW);
-                    printf("Enter page (1-%d): ", totalPages);
-                    show_cursor();
-                    int newPage;
-                    scanf("%d", &newPage);
-                    if (newPage >= 1 && newPage <= totalPages)
-                    {
-                        currentPage = newPage;
-                        cursorIndex = (currentPage - 1) * recordsPerPage;
-                    }
+                    currentPage++;
+                    cursorIndex = (currentPage - 1) * recordsPerPage;
                 }
-                break;
-                
-            case 3: // Search by ID
+                keyPressed = 1;
+            }
+        }
+        else if (key == 13) // Enter key - show navigation menu
+        {
+            // Show navigation menu
+            showNavigationMenu(&currentPage, &cursorIndex, &continueDisplay,
+                               tableSize, totalPages, recordsPerPage, indexTable);
+            keyPressed = 1;
+        }
+        else if (key == 27) // ESC key
+        {
+            continueDisplay = 0;
+            keyPressed = 1;
+        }
+        else
+        {
+            // Check for single-key navigation
+            switch (key)
+            {
+            case 'n':
+            case 'N':
+                if (currentPage < totalPages)
                 {
-                    gotoxy(center_x - 20, navStartY + 14);
-                    set_color(COLOR_YELLOW);
-                    printf("Enter Student ID: ");
-                    show_cursor();
-                    int searchId;
-                    scanf("%d", &searchId);
-                    
-                    bool found;
-                    int position;
-                    binary_search(indexTable, tableSize, searchId, &found, &position);
-                    
-                    if (found)
-                    {
-                        cursorIndex = position;
-                        currentPage = (position / recordsPerPage) + 1;
-                    }
-                    else
-                    {
-                        gotoxy(center_x - 20, navStartY + 15);
-                        set_color(COLOR_RED);
-                        printf("ID %d not found!", searchId);
-                        SLEEP_MS(1500);
-                    }
+                    currentPage++;
+                    cursorIndex = (currentPage - 1) * recordsPerPage;
                 }
+                keyPressed = 1;
                 break;
-                
-            case 4: // Set Cursor
+
+            case 'p':
+            case 'P':
+                if (currentPage > 1)
                 {
-                    gotoxy(center_x - 20, navStartY + 14);
-                    set_color(COLOR_YELLOW);
-                    printf("Enter index (1-%d): ", tableSize);
-                    show_cursor();
-                    int newCursor;
-                    scanf("%d", &newCursor);
-                    if (newCursor >= 1 && newCursor <= tableSize)
-                    {
-                        cursorIndex = newCursor - 1;
-                        currentPage = (cursorIndex / recordsPerPage) + 1;
-                    }
+                    currentPage--;
+                    cursorIndex = (currentPage - 1) * recordsPerPage;
                 }
+                keyPressed = 1;
                 break;
-                
-            case 5: // Move Cursor Up
-                if (cursorIndex > 0)
-                {
-                    cursorIndex--;
-                    if (cursorIndex < startIndex) currentPage--;
-                }
-                break;
-                
-            case 6: // Move Cursor Down
-                if (cursorIndex < tableSize - 1)
-                {
-                    cursorIndex++;
-                    if (cursorIndex >= endIndex) currentPage++;
-                }
-                break;
-                
-            case 7: // Quit
+
+            case 'q':
+            case 'Q':
                 continueDisplay = 0;
+                keyPressed = 1;
                 break;
             }
         }
+#endif
+
+        hide_cursor();
+
+        // If no key was processed, wait a bit
+        if (!keyPressed)
+        {
+            SLEEP_MS(100);
+        }
     }
-    
+
     // Close the data file
-    if (dataFile != NULL) Close(dataFile);
-    
+    if (dataFile != NULL)
+        Close(dataFile);
+
     // Clear and show exit message
     CLEAR_SCREEN();
-    gotoxy(center_x - 20, height / 2);
+    gotoxy(center_x - 15, height / 2);
     set_color(COLOR_GREEN);
-    printf("Index Table Display Completed!\n");
+    printf("Display Completed!\n");
     SLEEP_MS(1000);
 }
 
+// Add these function prototypes near the other prototypes
+void delete_student_workflow();
+void modify_student_workflow();
+void modify_student_name_workflow();
+void modify_student_year_workflow();
+void modify_student_speciality_workflow();
+void modify_student_resident_workflow();
+
+// Add these function implementations:
+
 /**
- * Display Pr_index table in a simple format with cursor control
+ * Complete workflow for deleting a student
  */
-void display_pr_index(Pr_index *index, int index_size)
+void delete_student_workflow()
 {
     int width = get_terminal_width();
     int height = get_terminal_height();
     int center_x = width / 2;
+
+    CLEAR_SCREEN();
+    hide_cursor();
+
+    // Step 1: Get student ID
+    gotoxy(center_x - 15, 3);
+    set_color(COLOR_CYAN);
+    printf("DELETE STUDENT - STEP 1/2");
+
+    gotoxy(center_x - 20, 8);
+    set_color(COLOR_WHITE);
+    printf("Enter Student ID to delete: ");
+
+    set_color(COLOR_CYAN);
+    show_cursor();
+    int studentID;
+    scanf("%d", &studentID);
+    getchar(); // Clear newline
+    hide_cursor();
+
+    // Step 2: Confirmation
+    CLEAR_SCREEN();
     
+    // Search for the student first
+    bool found;
+    int position;
+    binary_search(index_pr, index_size, studentID, &found, &position);
+    
+    if (!found)
+    {
+        gotoxy(center_x - 15, 8);
+        set_color(COLOR_RED);
+        printf("Student ID %d not found!", studentID);
+        
+        gotoxy(center_x - 15, 10);
+        set_color(COLOR_YELLOW);
+        printf("Press Enter to continue...");
+        getchar();
+        return;
+    }
+
+    // Get student details for confirmation
+    t_LnOVS *F;
+    Open(&F, fname, 'E');
+    
+    block dataBlock;
+    Pr_cor coords = index_pr[position].crdt;
+    ReadBlock(F, coords.block_number, &dataBlock);
+    
+    rec studentRecord = dataBlock.tab[coords.offset];
+    Close(F);
+
+    gotoxy(center_x - 15, 2);
+    set_color(COLOR_MAGENTA);
+    printf("CONFIRM STUDENT DELETION");
+
+    gotoxy(center_x - 30, 5);
+    set_color(COLOR_WHITE);
+    printf("+------------------------------------------------------------+");
+    
+    gotoxy(center_x - 30, 6);
+    printf("|                    STUDENT TO DELETE                       |");
+    
+    gotoxy(center_x - 30, 7);
+    printf("+------------------------------------------------------------+");
+    
+    int y = 8;
+    
+    // Display student information
+    gotoxy(center_x - 30, y++);
+    printf("|  %-20s: %-35s |", "Student ID", "N/A"); // ID will be shown separately
+    
+    gotoxy(center_x - 30, y++);
+    printf("|  %-20s: %-35s |", "Name", studentRecord.First_Name);
+    
+    gotoxy(center_x - 30, y++);
+    printf("|  %-20s: %-35s |", "Family Name", studentRecord.Family_Name);
+    
+    gotoxy(center_x - 30, y++);
+    printf("|  %-20s: %-35s |", "Year", studentRecord.Year_Study);
+    
+    gotoxy(center_x - 30, y++);
+    printf("|  %-20s: %-35s |", "Speciality", studentRecord.Speciality);
+    
+    gotoxy(center_x - 30, y++);
+    printf("|  %-20s: %-35s |", "Wilaya", studentRecord.Wilaya_Birth);
+    
+    char date_str[20];
+    snprintf(date_str, sizeof(date_str), "%02d/%02d/%04d",
+             studentRecord.Date_Birth.day,
+             studentRecord.Date_Birth.month,
+             studentRecord.Date_Birth.year);
+    gotoxy(center_x - 30, y++);
+    printf("|  %-20s: %-35s |", "Birth Date", date_str);
+    
+    gotoxy(center_x - 30, y++);
+    printf("|  %-20s: %-35s |", "Location", 
+           format("Block %d, Offset %d", coords.block_number, coords.offset));
+    
+    gotoxy(center_x - 30, y++);
+    printf("+------------------------------------------------------------+");
+    
+    y += 2;
+    
+    // Warning message
+    gotoxy(center_x - 25, y++);
+    set_color(COLOR_RED);
+    printf("WARNING: This action cannot be undone!");
+    
+    gotoxy(center_x - 25, y++);
+    printf("The student record will be marked as deleted.");
+    
+    y += 1;
+    
+    // Confirmation prompt
+    gotoxy(center_x - 15, y++);
+    set_color(COLOR_YELLOW);
+    printf("Delete student ID %d? (Y/N): ", studentID);
+    
+    show_cursor();
+    char confirm;
+    scanf(" %c", &confirm);
+    getchar();
+    
+    if (confirm == 'Y' || confirm == 'y')
+    {
+        int C35 = 0;
+        Delete_by_student_ID(index_pr, &index_size, studentID, fname, &C35);
+        
+        // Delete from all secondary indexes
+        Delete_from_index(index_pr, &index_size, studentID);
+        Delete_from_index1(index_Wilayabirth, &index_size8, coords.block_number, coords.offset);
+        Delete_from_index1(index_Speciality, &index_size7, coords.block_number, coords.offset);
+        Delete_from_index1(index_YearStudy, &index_size6, coords.block_number, coords.offset);
+        Delete_from_index1(index_Gender, &index_size5, coords.block_number, coords.offset);
+        Delete_from_index1(index_Monthbirth, &index_size4, coords.block_number, coords.offset);
+        Delete_from_index1(index_Yearbirth, &index_size3, coords.block_number, coords.offset);
+        Delete_from_index1(index_BooldType, &index_size2, coords.block_number, coords.offset);
+        Delete_from_index1(index_Datebirth, &index_size1, coords.block_number, coords.offset);
+        
+        // Save updated indexes
+        int cost;
+        save_indextable(index_pr, index_size, fname1, &cost);
+        save_indextable(index_BooldType, index_size2, fname7, &cost);
+        save_indextable(index_Datebirth, index_size1, fname3, &cost);
+        save_indextable(index_Yearbirth, index_size3, fname2, &cost);
+        save_indextable(index_Monthbirth, index_size4, fname4, &cost);
+        save_indextable(index_Gender, index_size5, fname6, &cost);
+        save_indextable(index_YearStudy, index_size6, fname8, &cost);
+        save_indextable(index_Speciality, index_size7, fname9, &cost);
+        save_indextable(index_Wilayabirth, index_size8, fname5, &cost);
+        
+        // Success message
+        gotoxy(center_x - 15, y + 2);
+        set_color(COLOR_GREEN);
+        printf("Student deleted successfully!");
+        
+        gotoxy(center_x - 15, y + 3);
+        set_color(COLOR_CYAN);
+        printf("Deletion cost C35: %d", C35);
+    }
+    else
+    {
+        gotoxy(center_x - 10, y + 2);
+        set_color(COLOR_RED);
+        printf("Deletion cancelled.");
+    }
+    
+    // Wait for user
+    gotoxy(center_x - 15, y + 5);
+    set_color(COLOR_YELLOW);
+    printf("Press Enter to continue...");
+    getchar();
+}
+/**
+ * Complete workflow for modifying student's first name
+ */
+void modify_student_workflow()
+{
+    int width = get_terminal_width();
+    int height = get_terminal_height();
+    int center_x = width / 2;
+
+    CLEAR_SCREEN();
+    hide_cursor();
+
+    // Step 1: Get student ID
+    gotoxy(center_x - 15, 3);
+    set_color(COLOR_CYAN);
+    printf("MODIFY STUDENT FIRST NAME - STEP 1/3");
+
+    gotoxy(center_x - 20, 8);
+    set_color(COLOR_WHITE);
+    printf("Enter Student ID to modify: ");
+
+    set_color(COLOR_CYAN);
+    show_cursor();
+    int studentID;
+    scanf("%d", &studentID);
+    getchar(); // Clear newline
+    hide_cursor();
+
+    // Search for the student
+    bool found;
+    int position;
+    binary_search(index_pr, index_size, studentID, &found, &position);
+    
+    if (!found)
+    {
+        CLEAR_SCREEN();
+        gotoxy(center_x - 15, 8);
+        set_color(COLOR_RED);
+        printf("Student ID %d not found!", studentID);
+        
+        gotoxy(center_x - 15, 10);
+        set_color(COLOR_YELLOW);
+        printf("Press Enter to continue...");
+        getchar();
+        return;
+    }
+
+    // Get current student information
+    t_LnOVS *F;
+    Open(&F, fname, 'E');
+    
+    block dataBlock;
+    Pr_cor coords = index_pr[position].crdt;
+    ReadBlock(F, coords.block_number, &dataBlock);
+    
+    rec currentRecord = dataBlock.tab[coords.offset];
+    Close(F);
+
+    // Step 2: Show current information
+    CLEAR_SCREEN();
+    gotoxy(center_x - 15, 3);
+    set_color(COLOR_CYAN);
+    printf("MODIFY STUDENT FIRST NAME - STEP 2/3");
+
+    // Display current student info
+    int y = 6;
+    
+    gotoxy(center_x - 25, y);
+    set_color(COLOR_YELLOW);
+    printf("CURRENT STUDENT INFORMATION");
+    y += 2;
+    
+    gotoxy(center_x - 25, y);
+    set_color(COLOR_WHITE);
+    printf("Student ID: ");
+    set_color(COLOR_BLUE);
+    printf("%d", studentID);
+    y += 1;
+    
+    gotoxy(center_x - 25, y);
+    set_color(COLOR_WHITE);
+    printf("Full Name: ");
+    set_color(COLOR_CYAN);
+    printf("%s %s", currentRecord.First_Name, currentRecord.Family_Name);
+    y += 1;
+    
+    gotoxy(center_x - 25, y);
+    set_color(COLOR_WHITE);
+    printf("Year & Speciality: ");
+    set_color(COLOR_CYAN);
+    printf("%s - %s", currentRecord.Year_Study, currentRecord.Speciality);
+    y += 1;
+    
+    gotoxy(center_x - 25, y);
+    set_color(COLOR_WHITE);
+    printf("Wilaya: ");
+    set_color(COLOR_CYAN);
+    printf("%s", currentRecord.Wilaya_Birth);
+    y += 2;
+    
+    // Step 3: Get new first name
+    gotoxy(center_x - 25, y);
+    set_color(COLOR_WHITE);
+    printf("Current First Name: ");
+    set_color(COLOR_GREEN);
+    printf("%s", currentRecord.First_Name);
+    y += 1;
+    
+    gotoxy(center_x - 25, y);
+    set_color(COLOR_WHITE);
+    printf("Enter new First Name: ");
+    
+    set_color(COLOR_CYAN);
+    show_cursor();
+    char newFirstName[30];
+    fgets(newFirstName, sizeof(newFirstName), stdin);
+    newFirstName[strcspn(newFirstName, "\n")] = 0;
+    hide_cursor();
+    
+    // Step 4: Confirmation
+    CLEAR_SCREEN();
+    gotoxy(center_x - 15, 3);
+    set_color(COLOR_MAGENTA);
+    printf("CONFIRM NAME CHANGE");
+
+    // Create confirmation box
+    int boxY = 6;
+    gotoxy(center_x - 30, boxY);
+    set_color(COLOR_WHITE);
+    printf("+------------------------------------------------------------+");
+    
+    gotoxy(center_x - 30, boxY + 1);
+    printf("|                    CHANGE CONFIRMATION                     |");
+    
+    gotoxy(center_x - 30, boxY + 2);
+    printf("+------------------------------------------------------------+");
+    
+    gotoxy(center_x - 30, boxY + 3);
+    printf("|  %-20s: %-35s |", "Student ID", "N/A");
+    
+    gotoxy(center_x - 30, boxY + 4);
+    printf("|  %-20s: %-35s |", "Family Name", currentRecord.Family_Name);
+    
+    gotoxy(center_x - 30, boxY + 5);
+    printf("|  %-20s: %-35s |", "Current First Name", currentRecord.First_Name);
+    
+    gotoxy(center_x - 30, boxY + 6);
+    printf("|  %-20s: %-35s |", "New First Name", newFirstName);
+    
+    // Show other info for context
+    gotoxy(center_x - 30, boxY + 7);
+    printf("|  %-20s: %-35s |", "Year", currentRecord.Year_Study);
+    
+    gotoxy(center_x - 30, boxY + 8);
+    printf("|  %-20s: %-35s |", "Speciality", currentRecord.Speciality);
+    
+    gotoxy(center_x - 30, boxY + 9);
+    printf("+------------------------------------------------------------+");
+    
+    // Warning about consequences
+    gotoxy(center_x - 25, boxY + 11);
+    set_color(COLOR_YELLOW);
+    printf("This change will update the student's record in the database.");
+    
+    // Confirmation prompt
+    gotoxy(center_x - 15, boxY + 13);
+    set_color(COLOR_WHITE);
+    printf("Confirm name change for ID ");
+    set_color(COLOR_BLUE);
+    printf("%d", studentID);
+    set_color(COLOR_WHITE);
+    printf("? (Y/N): ");
+    
+    show_cursor();
+    char confirm;
+    scanf(" %c", &confirm);
+    getchar();
+    
+    if (confirm == 'Y' || confirm == 'y')
+    {
+        int C36 = 0;
+        modification_first_name(studentID, newFirstName, index_pr, index_size, fname, &C36);
+        
+        // Success message
+        gotoxy(center_x - 15, boxY + 15);
+        set_color(COLOR_GREEN);
+        printf("✓ First name updated successfully!");
+        
+        gotoxy(center_x - 15, boxY + 16);
+        set_color(COLOR_CYAN);
+        printf("Modification cost C36: %d", C36);
+        
+        // Show the change
+        gotoxy(center_x - 25, boxY + 18);
+        set_color(COLOR_WHITE);
+        printf("Changed from: ");
+        set_color(COLOR_YELLOW);
+        printf("%s", currentRecord.First_Name);
+        
+        gotoxy(center_x - 25, boxY + 19);
+        set_color(COLOR_WHITE);
+        printf("Changed to:   ");
+        set_color(COLOR_GREEN);
+        printf("%s", newFirstName);
+    }
+    else
+    {
+        gotoxy(center_x - 10, boxY + 15);
+        set_color(COLOR_RED);
+        printf("✗ Modification cancelled.");
+    }
+    
+    // Wait for user
+    gotoxy(center_x - 15, boxY + 21);
+    set_color(COLOR_YELLOW);
+    printf("Press Enter to continue...");
+    getchar();
+}
+
+
+/**
+ * Helper function to show navigation menu
+ */
+void showNavigationMenu(int *currentPage, int *cursorIndex, int *continueDisplay,
+                        int tableSize, int totalPages, int recordsPerPage,
+                        Pr_index *indexTable)
+{
+    int width = get_terminal_width();
+    int height = get_terminal_height();
+    int center_x = width / 2;
+
+    // Clear area for menu
+    int menuStartY = height - 15;
+    for (int y = menuStartY; y < height; y++)
+    {
+        gotoxy(0, y);
+        printf("%-*s", width, " ");
+    }
+
+    // Draw menu box
+    gotoxy(center_x - 25, menuStartY);
+    set_color(COLOR_BLUE);
+    printf("+----------------------------------------------------+\n");
+
+    gotoxy(center_x - 25, menuStartY + 1);
+    printf("|                 NAVIGATION MENU                   |\n");
+
+    gotoxy(center_x - 25, menuStartY + 2);
+    printf("+----------------------------------------------------+\n");
+
+    char *navOptions[] = {
+        "N - Next Page",
+        "P - Previous Page",
+        "G - Go to Page",
+        "S - Search by ID",
+        "C - Set Cursor Position",
+        "Q - Quit"};
+
+    for (int i = 0; i < 6; i++)
+    {
+        gotoxy(center_x - 25, menuStartY + 3 + i);
+        printf("|  ");
+        set_color(COLOR_GREEN);
+        printf("%c", navOptions[i][0]);
+        set_color(COLOR_WHITE);
+        printf("%-45s", navOptions[i] + 2);
+        set_color(COLOR_BLUE);
+        printf(" |\n");
+    }
+
+    gotoxy(center_x - 25, menuStartY + 9);
+    printf("+----------------------------------------------------+\n");
+
+    gotoxy(center_x - 20, menuStartY + 11);
+    set_color(COLOR_YELLOW);
+    printf("Enter command: ");
+
+    show_cursor();
+    char command;
+    scanf(" %c", &command);
+    hide_cursor();
+
+    switch (command)
+    {
+    case 'n':
+    case 'N':
+        if (*currentPage < totalPages)
+        {
+            (*currentPage)++;
+            *cursorIndex = (*currentPage - 1) * recordsPerPage;
+        }
+        break;
+
+    case 'p':
+    case 'P':
+        if (*currentPage > 1)
+        {
+            (*currentPage)--;
+            *cursorIndex = (*currentPage - 1) * recordsPerPage;
+        }
+        break;
+
+    case 'g':
+    case 'G':
+        printf("Enter page (1-%d): ", totalPages);
+        int newPage;
+        scanf("%d", &newPage);
+        if (newPage >= 1 && newPage <= totalPages)
+        {
+            *currentPage = newPage;
+            *cursorIndex = (*currentPage - 1) * recordsPerPage;
+        }
+        break;
+
+    case 's':
+    case 'S':
+        printf("Enter Student ID: ");
+        int searchId;
+        scanf("%d", &searchId);
+
+        bool found;
+        int position;
+        binary_search(indexTable, tableSize, searchId, &found, &position);
+
+        if (found)
+        {
+            *cursorIndex = position;
+            *currentPage = (position / recordsPerPage) + 1;
+        }
+        else
+        {
+            gotoxy(center_x - 20, menuStartY + 13);
+            set_color(COLOR_RED);
+            printf("ID %d not found!", searchId);
+            SLEEP_MS(1500);
+        }
+        break;
+
+    case 'c':
+    case 'C':
+        printf("Enter cursor index (1-%d): ", tableSize);
+        int newCursor;
+        scanf("%d", &newCursor);
+        if (newCursor >= 1 && newCursor <= tableSize)
+        {
+            *cursorIndex = newCursor - 1;
+            *currentPage = (*cursorIndex / recordsPerPage) + 1;
+        }
+        break;
+
+    case 'q':
+    case 'Q':
+        *continueDisplay = 0;
+        break;
+    }
+
+    // Clear the menu area
+    for (int y = menuStartY; y < height; y++)
+    {
+        gotoxy(0, y);
+        printf("%-*s", width, " ");
+    }
+}
+
+/**
+ * Display TOF_ip index file with organized paging - Enhanced version
+ */
+void displayTOFIndexFile(char *filename, int recordsPerPage)
+{
+    TOF_ip *F;
     int currentPage = 1;
     int cursorIndex = 0;
-    int recordsPerPage = 20;
-    int totalPages = (index_size + recordsPerPage - 1) / recordsPerPage;
-    if (totalPages == 0) totalPages = 1;
+    int totalRecords = 0;
+    int totalBlocks = 0;
     
+    // Open the TOF_ip file
+    Open_TOF(&F, filename, 'E');
+    
+    // Get total blocks
+    totalBlocks = getHeader_ip(F, "nblk");
+    
+    // Count total records and collect all records for indexing
+    block_ip buf;
+    Pr_index *tofRecords = NULL;
+    int recordCount = 0;
+    
+    // First pass: count total records
+    for (int i = 1; i <= totalBlocks; i++)
+    {
+        ReadBlock_ip(F, i, &buf);
+        totalRecords += buf.Nb;
+    }
+    
+    // Allocate array for all records
+    tofRecords = malloc(totalRecords * sizeof(Pr_index));
+    
+    // Second pass: collect all records
+    for (int i = 1; i <= totalBlocks; i++)
+    {
+        ReadBlock_ip(F, i, &buf);
+        for (int offset = 0; offset < buf.Nb; offset++)
+        {
+            tofRecords[recordCount].Identifier = buf.tab[offset].Identifier;
+            tofRecords[recordCount].crdt.block_number = buf.tab[offset].crdt.block_number;
+            tofRecords[recordCount].crdt.offset = buf.tab[offset].crdt.offset;
+            recordCount++;
+        }
+    }
+    
+    // Calculate total pages
+    int totalPages = (totalRecords + recordsPerPage - 1) / recordsPerPage;
+    if (totalPages == 0)
+        totalPages = 1;
+
+    int width = get_terminal_width();
+    int height = get_terminal_height();
+    int center_x = width / 2;
+
     int continueDisplay = 1;
-    
+
     while (continueDisplay)
     {
         CLEAR_SCREEN();
         hide_cursor();
-        
+
         // ========== HEADER ==========
-        set_color(COLOR_CYAN);
-        for (int i = 0; i < width; i++) printf("=");
-        printf("\n");
-        
-        gotoxy(center_x - 15, 2);
+        gotoxy(center_x - 20, 1);
         set_color(COLOR_MAGENTA);
-        printf("PRIMARY INDEX TABLE DUMP");
-        
-        gotoxy(center_x - 25, 4);
-        set_color(COLOR_YELLOW);
-        printf("+----------------------------------------------------+\n");
-        
-        gotoxy(center_x - 25, 5);
+        printf("TOF INDEX FILE VIEWER");
+
+        gotoxy(center_x - 25, 2);
         set_color(COLOR_CYAN);
-        printf("|  Total Records: %-6d | Page: %-3d/%-3d              |\n",
-               index_size, currentPage, totalPages);
+        for (int i = 0; i < 50; i++)
+            printf("=");
+        printf("\n");
+
+        // ========== STATISTICS ==========
+        gotoxy(center_x - 25, 4);
+        set_color(COLOR_WHITE);
+        printf("File: %-20s", filename);
         
+        gotoxy(center_x + 10, 4);
+        printf("Blocks: %-4d", totalBlocks);
+
+        gotoxy(center_x - 25, 5);
+        printf("Records: %-5d  Page: %-2d/%-2d  Cursor: Index %-4d",
+               totalRecords, currentPage, totalPages, cursorIndex + 1);
+
         gotoxy(center_x - 25, 6);
-        printf("|  Current Cursor: Index %-4d                        |\n", cursorIndex + 1);
-        
-        gotoxy(center_x - 25, 7);
-        printf("+----------------------------------------------------+\n");
-        
-        // ========== TABLE ==========
+        set_color(COLOR_CYAN);
+        for (int i = 0; i < 50; i++)
+            printf("-");
+        printf("\n\n");
+
+        // ========== INDEX TABLE ==========
         int startIndex = (currentPage - 1) * recordsPerPage;
         int endIndex = startIndex + recordsPerPage;
-        if (endIndex > index_size) endIndex = index_size;
-        
-        int tableWidth = 52;
+        if (endIndex > totalRecords)
+            endIndex = totalRecords;
+
+        // Table header
+        int tableWidth = 72;
         int tableStartX = center_x - (tableWidth / 2);
-        
-        gotoxy(tableStartX, 9);
-        set_color(COLOR_GREEN);
-        printf("+------+------------+-----------------+-----------------+\n");
-        
-        gotoxy(tableStartX, 10);
-        set_color(COLOR_YELLOW);
-        printf("| Index | Student ID |   Block Number  |     Offset      |\n");
-        
-        gotoxy(tableStartX, 11);
-        set_color(COLOR_GREEN);
-        printf("+------+------------+-----------------+-----------------+\n");
-        
-        int lineY = 12;
+        int tableStartY = 8;
+
+        gotoxy(tableStartX, tableStartY);
+        set_color(COLOR_BLUE);
+        printf("+----+------------+----------+----------+------------------------+\n");
+
+        gotoxy(tableStartX, tableStartY + 1);
+        set_color(COLOR_CYAN);
+        printf("| #  |    ID      |  Block   |  Offset  |   Physical Position   |\n");
+
+        gotoxy(tableStartX, tableStartY + 2);
+        set_color(COLOR_BLUE);
+        printf("+----+------------+----------+----------+------------------------+\n");
+
+        // Display records
+        int lineY = tableStartY + 3;
         for (int i = startIndex; i < endIndex; i++)
         {
             gotoxy(tableStartX, lineY);
+
+            int isCursorIndex = (i == cursorIndex);
             
-            if (i == cursorIndex)
+            // Calculate physical position
+            long physicalPos = sizeof(header_ip) + 
+                             (tofRecords[i].crdt.block_number - 1) * sizeof(block_ip) + 
+                             tofRecords[i].crdt.offset * sizeof(rec_ip);
+
+            if (isCursorIndex)
             {
                 set_color(COLOR_GREEN);
-                printf("| >%-4d", i + 1);
+                printf("|>%-3d", i + 1);
                 set_color(COLOR_WHITE);
-                printf("| %-10d | %-15d | %-15d |\n",
-                       index[i].Identifier,
-                       index[i].crdt.block_number,
-                       index[i].crdt.offset);
+                printf("| %-10d | %-8d | %-8d | %-22ld |\n",
+                       tofRecords[i].Identifier,
+                       tofRecords[i].crdt.block_number,
+                       tofRecords[i].crdt.offset,
+                       physicalPos);
             }
             else
             {
                 set_color(COLOR_WHITE);
-                printf("|  %-4d| %-10d | %-15d | %-15d |\n",
+                printf("| %-3d| %-10d | %-8d | %-8d | %-22ld |\n",
                        i + 1,
-                       index[i].Identifier,
-                       index[i].crdt.block_number,
-                       index[i].crdt.offset);
+                       tofRecords[i].Identifier,
+                       tofRecords[i].crdt.block_number,
+                       tofRecords[i].crdt.offset,
+                       physicalPos);
             }
+
             lineY++;
         }
-        
+
         gotoxy(tableStartX, lineY);
-        set_color(COLOR_GREEN);
-        printf("+------+------------+-----------------+-----------------+\n");
-        
-        // ========== NAVIGATION ==========
-        int navStartY = lineY + 2;
-        
-        // Clear navigation area
-        for (int i = navStartY; i < height - 1; i++)
-        {
-            gotoxy(0, i);
-            printf("%-*s", width, "");
-        }
-        
-        // Navigation box
-        gotoxy(center_x - 25, navStartY);
         set_color(COLOR_BLUE);
-        printf("+----------------------------------------------------+\n");
-        
-        gotoxy(center_x - 25, navStartY + 1);
-        printf("|                  NAVIGATION MENU                   |\n");
-        
-        gotoxy(center_x - 25, navStartY + 2);
-        printf("+----------------------------------------------------+\n");
-        
-        // Simple navigation options
-        char *navOptions[] = {
-            " Next Page        ",
-            " Previous Page    ",
-            " Go to Page       ",
-            " Set Cursor       ",
-            " Move Cursor      ",
-            " Quit             "
-        };
-        
-        int navCursor = 0;
-        int navSelected = -1;
-        
-        while (navSelected == -1)
+        printf("+----+------------+----------+----------+------------------------+\n");
+
+        // Page info
+        gotoxy(center_x - 20, lineY + 2);
+        set_color(COLOR_CYAN);
+        printf("Page %d/%d: Records %d to %d of %d",
+               currentPage, totalPages, startIndex + 1, endIndex, totalRecords);
+
+        // ========== CURRENT ENTRY DETAILS (VERTICAL STACK WITH SPACING) ==========
+        int detailsStartY = lineY + 5; // More space after table
+
+        // Clear details area (20 lines)
+        for (int y = detailsStartY; y < detailsStartY + 20; y++)
         {
-            for (int i = 0; i < 6; i++)
-            {
-                gotoxy(center_x - 25, navStartY + 3 + i);
-                
-                if (i == navCursor)
-                {
-                    set_color(COLOR_GREEN);
-                    printf("| > %-46s |\n", navOptions[i]);
-                }
-                else
-                {
-                    set_color(COLOR_WHITE);
-                    printf("|   %-46s |\n", navOptions[i]);
-                }
-            }
-            
-            gotoxy(center_x - 25, navStartY + 9);
-            set_color(COLOR_BLUE);
-            printf("+----------------------------------------------------+\n");
-            
-            gotoxy(center_x - 20, navStartY + 10);
-            set_color(COLOR_YELLOW);
-            printf("Use ARROW KEYS and ENTER to select");
-            
-            // Get input
-            show_cursor();
-            #ifdef _WIN32
-            int key = _getch();
-            if (key == 224 || key == 0)
-            {
-                key = _getch();
-                if (key == 72 && navCursor > 0) navCursor--;
-                else if (key == 80 && navCursor < 5) navCursor++;
-            }
-            else if (key == 13)
-            {
-                navSelected = navCursor;
-            }
-            else if (key == 27)
-            {
-                continueDisplay = 0;
-                break;
-            }
-            #endif
-            hide_cursor();
+            gotoxy(center_x - 25, y);
+            printf("%-50s", " ");
         }
-        
-        // Process selection
-        if (navSelected != -1)
+
+        if (cursorIndex >= 0 && cursorIndex < totalRecords)
         {
-            switch (navSelected)
+            // Title with spacing
+            gotoxy(center_x - 25, detailsStartY);
+            set_color(COLOR_YELLOW);
+            printf("CURRENT ENTRY DETAILS (Index: %d)", cursorIndex + 1);
+
+            // Empty line after title
+            gotoxy(center_x - 25, detailsStartY + 1);
+            printf(" ");
+
+            // Details - each on its own line with good spacing
+            int currentLine = detailsStartY + 2;
+
+            // ID
+            gotoxy(center_x - 25, currentLine);
+            set_color(COLOR_WHITE);
+            printf("\n\t\t\tIndex ID: ");
+            set_color(COLOR_BLUE);
+            printf("%d", tofRecords[cursorIndex].Identifier);
+            currentLine += 2;
+
+            // Block and Offset
+            gotoxy(center_x - 25, currentLine);
+            set_color(COLOR_WHITE);
+            printf("\n\t\t\tData Location: ");
+            set_color(COLOR_CYAN);
+            printf("Block %d, Offset %d", 
+                   tofRecords[cursorIndex].crdt.block_number,
+                   tofRecords[cursorIndex].crdt.offset);
+            currentLine += 2;
+
+            // Physical Position
+            gotoxy(center_x - 25, currentLine);
+            set_color(COLOR_WHITE);
+            printf("\n\t\t\tPhysical Position: ");
+            set_color(COLOR_MAGENTA);
+            
+            long physicalPos = sizeof(header_ip) + 
+                             (tofRecords[cursorIndex].crdt.block_number - 1) * sizeof(block_ip) + 
+                             tofRecords[cursorIndex].crdt.offset * sizeof(rec_ip);
+            printf("%ld bytes", physicalPos);
+            currentLine += 2;
+
+            // File Structure
+            gotoxy(center_x - 25, currentLine);
+            set_color(COLOR_WHITE);
+            printf("\n\t\t\tFile Structure: ");
+            set_color(COLOR_CYAN);
+            printf("TOF Index File");
+            currentLine += 2;
+
+            // Status
+            gotoxy(center_x - 25, currentLine);
+            set_color(COLOR_WHITE);
+            printf("\n\t\t\tStatus: ");
+            set_color(COLOR_GREEN);
+            printf("Valid Index Entry");
+            currentLine += 3;
+
+            // Separator line
+            gotoxy(center_x - 25, currentLine);
+            set_color(COLOR_CYAN);
+            
+            
+            detailsStartY = currentLine + 2; // Update for navigation prompt
+        }
+        else
+        {
+            // If no valid record, still show separator
+            gotoxy(center_x - 25, detailsStartY);
+            set_color(COLOR_CYAN);
+            for (int i = 0; i < 50; i++)
+                printf("-");
+            detailsStartY += 2;
+        }
+
+        // ========== NAVIGATION PROMPT (WITH SPACING) ==========
+int promptY = detailsStartY + 3; // More space after details
+
+// Clear prompt area
+for (int y = promptY; y < promptY + 5; y++)
+{
+    gotoxy(center_x - 25, y);
+    printf("%-50s", " ");
+}
+
+gotoxy(center_x - 25, promptY);
+
+
+
+// ========== INPUT HANDLING ==========
+int keyPressed = 0;
+
+show_cursor();
+
+#ifdef _WIN32
+int key = _getch();
+if (key == 224 || key == 0) // Arrow key
+{
+    key = _getch();
+    if (key == 72) // Up arrow
+    {
+        if (cursorIndex > 0)
+        {
+            cursorIndex--;
+            if (cursorIndex < startIndex)
             {
-            case 0: // Next Page
-                if (currentPage < totalPages)
-                {
-                    currentPage++;
-                    cursorIndex = (currentPage - 1) * recordsPerPage;
-                }
-                break;
-                
-            case 1: // Previous Page
-                if (currentPage > 1)
+                currentPage--;
+                if (currentPage < 1)
+                    currentPage = 1;
+            }
+        }
+        keyPressed = 1;
+    }
+    else if (key == 80) // Down arrow
+    {
+        if (cursorIndex < totalRecords - 1)
+        {
+            cursorIndex++;
+            if (cursorIndex >= endIndex)
+            {
+                currentPage++;
+                if (currentPage > totalPages)
+                    currentPage = totalPages;
+            }
+        }
+        keyPressed = 1;
+    }
+    else if (key == 75) // Left arrow - Previous page
+    {
+        if (currentPage > 1)
+        {
+            currentPage--;
+            cursorIndex = (currentPage - 1) * recordsPerPage;
+        }
+        keyPressed = 1;
+    }
+    else if (key == 77) // Right arrow - Next page
+    {
+        if (currentPage < totalPages)
+        {
+            currentPage++;
+            cursorIndex = (currentPage - 1) * recordsPerPage;
+        }
+        keyPressed = 1;
+    }
+}
+else if (key == 13) // Enter key - show navigation menu
+{
+    // Show navigation menu
+    showTOFNavigationMenu(&currentPage, &cursorIndex, &continueDisplay,
+                         totalRecords, totalPages, recordsPerPage,
+                         tofRecords, filename);
+    keyPressed = 1;
+}
+else if (key == 27) // ESC key
+{
+    continueDisplay = 0;
+    keyPressed = 1;
+}
+else
+{
+    // Check for single-key navigation
+    switch (key)
+    {
+    case 'n':
+    case 'N':
+        if (currentPage < totalPages)
+        {
+            currentPage++;
+            cursorIndex = (currentPage - 1) * recordsPerPage;
+        }
+        keyPressed = 1;
+        break;
+
+    case 'p':
+    case 'P':
+        if (currentPage > 1)
+        {
+            currentPage--;
+            cursorIndex = (currentPage - 1) * recordsPerPage;
+        }
+        keyPressed = 1;
+        break;
+
+    case 'q':
+    case 'Q':
+        continueDisplay = 0;
+        keyPressed = 1;
+        break;
+    }
+}
+#else
+// Linux/macOS implementation
+struct termios oldt, newt;
+tcgetattr(STDIN_FILENO, &oldt);
+newt = oldt;
+newt.c_lflag &= ~(ICANON | ECHO);
+tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+
+int key = getchar();
+
+if (key == 27) // Escape sequence
+{
+    key = getchar(); // Should be '['
+    if (key == '[')
+    {
+        key = getchar();
+        switch (key)
+        {
+        case 'A': // Up arrow
+            if (cursorIndex > 0)
+            {
+                cursorIndex--;
+                if (cursorIndex < startIndex)
                 {
                     currentPage--;
-                    cursorIndex = (currentPage - 1) * recordsPerPage;
+                    if (currentPage < 1)
+                        currentPage = 1;
                 }
-                break;
-                
-            case 2: // Go to Page
-                {
-                    gotoxy(center_x - 15, navStartY + 12);
-                    set_color(COLOR_YELLOW);
-                    printf("Enter page (1-%d): ", totalPages);
-                    show_cursor();
-                    int newPage;
-                    scanf("%d", &newPage);
-                    if (newPage >= 1 && newPage <= totalPages)
-                    {
-                        currentPage = newPage;
-                        cursorIndex = (currentPage - 1) * recordsPerPage;
-                    }
-                }
-                break;
-                
-            case 3: // Set Cursor
-                {
-                    gotoxy(center_x - 15, navStartY + 12);
-                    set_color(COLOR_YELLOW);
-                    printf("Enter index (1-%d): ", index_size);
-                    show_cursor();
-                    int newCursor;
-                    scanf("%d", &newCursor);
-                    if (newCursor >= 1 && newCursor <= index_size)
-                    {
-                        cursorIndex = newCursor - 1;
-                        currentPage = (cursorIndex / recordsPerPage) + 1;
-                    }
-                }
-                break;
-                
-            case 4: // Move Cursor
-                {
-                    gotoxy(center_x - 20, navStartY + 12);
-                    set_color(COLOR_YELLOW);
-                    printf("U: Up, D: Down: ");
-                    show_cursor();
-                    char move;
-                    scanf(" %c", &move);
-                    if (move == 'U' || move == 'u')
-                    {
-                        if (cursorIndex > 0) cursorIndex--;
-                    }
-                    else if (move == 'D' || move == 'd')
-                    {
-                        if (cursorIndex < index_size - 1) cursorIndex++;
-                    }
-                }
-                break;
-                
-            case 5: // Quit
-                continueDisplay = 0;
-                break;
             }
+            keyPressed = 1;
+            break;
+        case 'B': // Down arrow
+            if (cursorIndex < totalRecords - 1)
+            {
+                cursorIndex++;
+                if (cursorIndex >= endIndex)
+                {
+                    currentPage++;
+                    if (currentPage > totalPages)
+                        currentPage = totalPages;
+                }
+            }
+            keyPressed = 1;
+            break;
+        case 'D': // Left arrow
+            if (currentPage > 1)
+            {
+                currentPage--;
+                cursorIndex = (currentPage - 1) * recordsPerPage;
+            }
+            keyPressed = 1;
+            break;
+        case 'C': // Right arrow
+            if (currentPage < totalPages)
+            {
+                currentPage++;
+                cursorIndex = (currentPage - 1) * recordsPerPage;
+            }
+            keyPressed = 1;
+            break;
         }
     }
-    
-    // Exit message
+}
+else if (key == 10 || key == 13) // Enter key
+{
+    showTOFNavigationMenu(&currentPage, &cursorIndex, &continueDisplay,
+                         totalRecords, totalPages, recordsPerPage,
+                         tofRecords, filename);
+    keyPressed = 1;
+}
+else if (key == 27) // ESC key (single press)
+{
+    continueDisplay = 0;
+    keyPressed = 1;
+}
+else
+{
+    // Check for single-key navigation
+    switch (key)
+    {
+    case 'n':
+    case 'N':
+        if (currentPage < totalPages)
+        {
+            currentPage++;
+            cursorIndex = (currentPage - 1) * recordsPerPage;
+        }
+        keyPressed = 1;
+        break;
+
+    case 'p':
+    case 'P':
+        if (currentPage > 1)
+        {
+            currentPage--;
+            cursorIndex = (currentPage - 1) * recordsPerPage;
+        }
+        keyPressed = 1;
+        break;
+
+    case 'q':
+    case 'Q':
+        continueDisplay = 0;
+        keyPressed = 1;
+        break;
+    }
+}
+
+tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+#endif
+
+hide_cursor();
+
+// If no key was processed, wait a bit
+if (!keyPressed)
+{
+    SLEEP_MS(100);
+}
+    }
+
+    // Close the TOF index file
+    Close_TOF(F);
+
+    // Free allocated memory
+    free(tofRecords);
+
+    // Clear and show exit message
     CLEAR_SCREEN();
-    gotoxy(center_x - 20, height / 2);
+    gotoxy(center_x - 15, height / 2);
     set_color(COLOR_GREEN);
     printf("Display Completed!\n");
     SLEEP_MS(1000);
+}
+
+/**
+ * Helper function to show TOF navigation menu
+ */
+void showTOFNavigationMenu(int *currentPage, int *cursorIndex, int *continueDisplay,
+                          int totalRecords, int totalPages, int recordsPerPage,
+                          Pr_index *tofRecords, char *filename)
+{
+    int width = get_terminal_width();
+    int height = get_terminal_height();
+    int center_x = width / 2;
+
+    // Clear area for menu
+    int menuStartY = height - 15;
+    for (int y = menuStartY; y < height; y++)
+    {
+        gotoxy(0, y);
+        printf("%-*s", width, " ");
+    }
+
+    // Draw menu box
+    gotoxy(center_x - 25, menuStartY);
+    set_color(COLOR_BLUE);
+    printf("+----------------------------------------------------+\n");
+
+    gotoxy(center_x - 25, menuStartY + 1);
+    printf("|                 NAVIGATION MENU                   |\n");
+
+    gotoxy(center_x - 25, menuStartY + 2);
+    printf("+----------------------------------------------------+\n");
+
+    char *navOptions[] = {
+        "N - Next Page",
+        "P - Previous Page",
+        "G - Go to Page",
+        "S - Search by ID",
+        "C - Set Cursor Position",
+        "V - View Entry Details",
+        "Q - Quit"};
+
+    for (int i = 0; i < 7; i++)
+    {
+        gotoxy(center_x - 25, menuStartY + 3 + i);
+        printf("|  ");
+        set_color(COLOR_GREEN);
+        printf("%c", navOptions[i][0]);
+        set_color(COLOR_WHITE);
+        printf("%-45s", navOptions[i] + 2);
+        set_color(COLOR_BLUE);
+        printf(" |\n");
+    }
+
+    gotoxy(center_x - 25, menuStartY + 10);
+    printf("+----------------------------------------------------+\n");
+
+    gotoxy(center_x - 20, menuStartY + 11);
+    set_color(COLOR_YELLOW);
+    printf("Enter command: ");
+
+    show_cursor();
+    char command;
+    scanf(" %c", &command);
+    hide_cursor();
+
+    switch (command)
+    {
+    case 'n':
+    case 'N':
+        if (*currentPage < totalPages)
+        {
+            (*currentPage)++;
+            *cursorIndex = (*currentPage - 1) * recordsPerPage;
+        }
+        break;
+
+    case 'p':
+    case 'P':
+        if (*currentPage > 1)
+        {
+            (*currentPage)--;
+            *cursorIndex = (*currentPage - 1) * recordsPerPage;
+        }
+        break;
+
+    case 'g':
+    case 'G':
+        printf("Enter page (1-%d): ", totalPages);
+        int newPage;
+        scanf("%d", &newPage);
+        if (newPage >= 1 && newPage <= totalPages)
+        {
+            *currentPage = newPage;
+            *cursorIndex = (*currentPage - 1) * recordsPerPage;
+        }
+        break;
+
+    case 's':
+    case 'S':
+        printf("Enter Index ID: ");
+        int searchId;
+        scanf("%d", &searchId);
+
+        bool found = false;
+        int position = -1;
+        
+        // Linear search in TOF records
+        for (int i = 0; i < totalRecords; i++)
+        {
+            if (tofRecords[i].Identifier == searchId)
+            {
+                found = true;
+                position = i;
+                break;
+            }
+        }
+
+        if (found)
+        {
+            *cursorIndex = position;
+            *currentPage = (position / recordsPerPage) + 1;
+        }
+        else
+        {
+            gotoxy(center_x - 20, menuStartY + 13);
+            set_color(COLOR_RED);
+            printf("ID %d not found in TOF index!", searchId);
+            SLEEP_MS(1500);
+        }
+        break;
+
+    case 'c':
+    case 'C':
+        printf("Enter cursor index (1-%d): ", totalRecords);
+        int newCursor;
+        scanf("%d", &newCursor);
+        if (newCursor >= 1 && newCursor <= totalRecords)
+        {
+            *cursorIndex = newCursor - 1;
+            *currentPage = (*cursorIndex / recordsPerPage) + 1;
+        }
+        break;
+
+    case 'v':
+    case 'V':
+        if (*cursorIndex >= 0 && *cursorIndex < totalRecords)
+        {
+            // Show detailed view
+            CLEAR_SCREEN();
+            gotoxy(center_x - 15, 5);
+            set_color(COLOR_MAGENTA);
+            printf("TOF INDEX ENTRY DETAILS\n");
+            
+            gotoxy(center_x - 20, 7);
+            set_color(COLOR_CYAN);
+            printf("File: %s\n", filename);
+            
+            gotoxy(center_x - 20, 9);
+            set_color(COLOR_WHITE);
+            printf("Index Position: %d of %d\n", *cursorIndex + 1, totalRecords);
+            
+            gotoxy(center_x - 20, 10);
+            printf("Student ID: %d\n", tofRecords[*cursorIndex].Identifier);
+            
+            gotoxy(center_x - 20, 11);
+            printf("Block Number: %d\n", tofRecords[*cursorIndex].crdt.block_number);
+            
+            gotoxy(center_x - 20, 12);
+            printf("Offset: %d\n", tofRecords[*cursorIndex].crdt.offset);
+            
+            // Calculate and show physical position
+            long physicalPos = sizeof(header_ip) + 
+                             (tofRecords[*cursorIndex].crdt.block_number - 1) * sizeof(block_ip) + 
+                             tofRecords[*cursorIndex].crdt.offset * sizeof(rec_ip);
+            
+            gotoxy(center_x - 20, 13);
+            printf("Physical Position: %ld bytes\n", physicalPos);
+            
+            gotoxy(center_x - 20, 14);
+            printf("Hex Offset: 0x%08lX\n", physicalPos);
+            
+            gotoxy(center_x - 20, 16);
+            set_color(COLOR_CYAN);
+            printf("File Structure:");
+            
+            gotoxy(center_x - 20, 17);
+            printf("Header: %zu bytes", sizeof(header_ip));
+            
+            gotoxy(center_x - 20, 18);
+            printf("Block Size: %zu bytes", sizeof(block_ip));
+            
+            gotoxy(center_x - 20, 19);
+            printf("Record Size: %zu bytes", sizeof(rec_ip));
+            
+            gotoxy(center_x - 15, 22);
+            set_color(COLOR_YELLOW);
+            printf("Press Enter to continue...");
+            getchar(); // Clear buffer
+            getchar();
+        }
+        break;
+
+    case 'q':
+    case 'Q':
+        *continueDisplay = 0;
+        break;
+    }
+
+    // Clear the menu area
+    for (int y = menuStartY; y < height; y++)
+    {
+        gotoxy(0, y);
+        printf("%-*s", width, " ");
+    }
 }
 // Color codes
 #ifdef _WIN32
@@ -1247,36 +1877,7 @@ void display_pr_index(Pr_index *index, int index_size)
 #define COLOR_GRAY "\033[1;90m"
 #endif
 
-// Global variables
-block buf;
-char filename[50];
-int C2, C31, C32, C33, C34, C35, C36;
 
-#define MAX_INDEX 10000
-Pr_index index_pr[MAX_INDEX];
-Pr_index index_Yearbirth[MAX_INDEX];
-Pr_index index_Datebirth[MAX_INDEX];
-Pr_index index_Monthbirth[MAX_INDEX];
-Pr_index index_Wilayabirth[MAX_INDEX];
-Pr_index index_Gender[MAX_INDEX];
-Pr_index index_BooldType[MAX_INDEX];
-Pr_index index_YearStudy[MAX_INDEX];
-Pr_index index_Speciality[MAX_INDEX];
-Pr_index index_Resident[5000];
-int index_size = 1;
-int index_size1 = 0;
-int index_size2 = 0;
-int index_size3 = 0;
-int index_size4 = 0;
-int index_size5 = 0;
-int index_size6 = 0;
-int index_size7 = 0;
-int index_size8 = 0;
-char *fname = "STUDENTS_ESI.bin";
-char *fname1 = "StudentID_INDEX.idx";
-
-int current_main_menu_selection = 0;
-int current_submenu_selection = 0;
 
 // Function prototypes
 void initial_loading(int N, int *C2);
@@ -2269,6 +2870,15 @@ void initial_loading(int N, int *C2)
 {
     *C2 = 0;
     t_LnOVS *F;
+    index_size = 0;
+    index_size1 = 0;
+    index_size2 = 0;
+    index_size3 = 0;
+    index_size4 = 0;
+    index_size5 = 0;
+    index_size6 = 0;
+    index_size7 = 0;
+    index_size8 = 0;
 
     // Seed random number generator
     srand(time(NULL));
@@ -2375,7 +2985,6 @@ void initial_loading(int N, int *C2)
         buf.tab[buf.Nb].Resident_UC = Resident_UC;
 
         // Insert into primary index
-        printf("the index size :%d, and the StudentId:%d",index_size,Student_ID);
         Insert_Pr_index(index_pr, &index_size, Student_ID, current_block, buf.Nb);
         Insert_index(index_Datebirth, &index_size1, day, current_block, buf.Nb);
         Insert_index(index_BooldType, &index_size2, rand_blood, current_block, buf.Nb);
@@ -2397,13 +3006,20 @@ void initial_loading(int N, int *C2)
     // incrementing the cost
     (*C2)++;
     // Update headers
-    setHeader(F, "freepos", buf.Nb);
+    if (buf.Nb == 40)
+    {
+        setHeader(F, "freepos", 0);
+    }
+    else
+    {
+        setHeader(F, "freepos", buf.Nb);
+    }
     setHeader(F, "tail", current_block);
-
+   
     Close(F);
 
     printf("Successfully loaded %d students into database.\n", N);
-    printf("Index table size: %d\n", index_size);
+    printf("\t\t\tIndex table size: %d\n", index_size);
 }
 
 // Insert student workflow
@@ -2421,6 +3037,7 @@ void insert_student_workflow()
     bool Resident_UC = false;
 
     // Step 1: Family Name
+    // Step 2: First Name
     CLEAR_SCREEN();
     gotoxy(center_x - 15, 3);
     set_color(COLOR_CYAN);
@@ -2432,6 +3049,7 @@ void insert_student_workflow()
 
     set_color(COLOR_CYAN);
     show_cursor();
+    getchar();
     fgets(Family_Name, sizeof(Family_Name), stdin);
     Family_Name[strcspn(Family_Name, "\n")] = 0;
     hide_cursor();
@@ -2714,21 +3332,37 @@ void show_confirmation_screen(char *Family_Name, char *First_Name, int Gender,
     if (confirm == 'Y' || confirm == 'y')
     {
         // Load index table
-        Pr_index indextable[5000];
-        int Size = 0;
+       
         int C32 = 0;
-        loadindextable(fname1, indextable, &Size, &C32);
+        loadindextable(fname1, index_pr, &index_size, &C32);
+        int cost1;
+        loadindextable(fname3, index_Datebirth, &index_size1, &cost1);
+        loadindextable(fname7, index_BooldType, &index_size2, &cost1);
+        loadindextable(fname2, index_Yearbirth, &index_size3, &cost1);
+        loadindextable(fname4, index_Monthbirth, &index_size4, &cost1);
+        loadindextable(fname6, index_Gender, &index_size5, &cost1);
+        loadindextable(fname8, index_YearStudy, &index_size6, &cost1);
+        loadindextable(fname9, index_Speciality, &index_size7, &cost1);
+        loadindextable(fname5, index_Wilayabirth, &index_size8, &cost1);
 
         // Insert the new student
         int C34 = 0;
-        insert_newStudent("STUDENTS_ESI.bin", indextable, Gender,
+        insert_newStudent("STUDENTS_ESI.bin", index_pr, &index_size, Gender,
                           Family_Name, First_Name, Wilaya_Birth, Blood_Type,
                           Year_Study, Speciality_name, Date_Birth, Resident_UC, &C34);
 
         // Save updated index table
         int C31 = 0;
-        save_indextable(indextable, Size, fname1, &C31);
-
+        save_indextable(index_pr, index_size, fname1, &C31);
+        int cost;
+        save_indextable(index_BooldType, index_size2, fname7, &cost);
+        save_indextable(index_Datebirth, index_size1, fname3, &cost);
+        save_indextable(index_Yearbirth, index_size3, fname2, &cost );      
+        save_indextable(index_Monthbirth, index_size4, fname4, &cost);
+        save_indextable(index_Gender, index_size5, fname6, &cost);
+        save_indextable(index_YearStudy, index_size6, fname8, &cost);
+        save_indextable(index_Speciality, index_size7, fname9, &cost);  
+        save_indextable(index_Wilayabirth, index_size8, fname5, &cost);
         // Success message
         y += 2;
         gotoxy(center_x - 15, y);
@@ -3062,6 +3696,551 @@ void display_main_menu()
     }
 }
 
+/**
+ * Complete workflow for initial loading of database
+ */
+void initial_loading_workflow()
+{
+    int width = get_terminal_width();
+    int height = get_terminal_height();
+    int center_x = width / 2;
+
+    CLEAR_SCREEN();
+    hide_cursor();
+
+    // Step 1: Get number of records
+    gotoxy(center_x - 20, 3);
+    set_color(COLOR_CYAN);
+    printf("INITIAL DATABASE CREATION");
+
+    gotoxy(center_x - 30, 6);
+    set_color(COLOR_WHITE);
+    printf("============================================================");
+    
+    gotoxy(center_x - 20, 8);
+    set_color(COLOR_YELLOW);
+    printf("Enter number of students to generate: ");
+    
+    set_color(COLOR_CYAN);
+    show_cursor();
+    int N;
+    scanf("%d", &N);
+    getchar();
+    hide_cursor();
+
+    if (N <= 0)
+    {
+        gotoxy(center_x - 15, 12);
+        set_color(COLOR_RED);
+        printf("Number must be greater than 0!");
+        
+        gotoxy(center_x - 15, 14);
+        set_color(COLOR_YELLOW);
+        printf("Press Enter to continue...");
+        getchar();
+        return;
+    }
+
+    // Step 2: Confirmation
+    CLEAR_SCREEN();
+    gotoxy(center_x - 20, 3);
+    set_color(COLOR_MAGENTA);
+    printf("CONFIRM DATABASE CREATION");
+    
+    gotoxy(center_x - 30, 6);
+    set_color(COLOR_CYAN);
+    printf("============================================================");
+    
+    int y = 8;
+    
+    // Display loading details
+    gotoxy(center_x - 25, y++);
+    set_color(COLOR_WHITE);
+    printf("File to create: ");
+    set_color(COLOR_GREEN);
+    printf("STUDENTS_ESI.bin");
+    
+    gotoxy(center_x - 25, y++);
+    set_color(COLOR_WHITE);
+    printf("Number of students: ");
+    set_color(COLOR_BLUE);
+    printf("%d", N);
+    
+    gotoxy(center_x - 25, y++);
+    set_color(COLOR_WHITE);
+    printf("Records per block: ");
+    set_color(COLOR_CYAN);
+    printf("40");
+    
+    gotoxy(center_x - 25, y++);
+    set_color(COLOR_WHITE);
+    printf("Estimated blocks: ");
+    set_color(COLOR_CYAN);
+    printf("%d", (N + 39) / 40);
+    
+    y += 1;
+    
+    gotoxy(center_x - 25, y++);
+    set_color(COLOR_YELLOW);
+    printf("WARNING: Existing STUDENTS_ESI.bin will be overwritten!");
+    
+    y += 2;
+    
+    gotoxy(center_x - 20, y++);
+    set_color(COLOR_WHITE);
+    printf("Create database? (Y/N): ");
+    
+    show_cursor();
+    char confirm;
+    scanf(" %c", &confirm);
+    getchar();
+    
+    if (confirm == 'Y' || confirm == 'y')
+    {
+        // Clear screen for loading
+        CLEAR_SCREEN();
+        gotoxy(center_x - 15, 5);
+        set_color(COLOR_CYAN);
+        printf("GENERATING DATABASE...");
+        
+        gotoxy(center_x - 30, 8);
+        set_color(COLOR_CYAN);
+        printf("============================================================");
+        
+        // Show progress
+        gotoxy(center_x - 25, 10);
+        set_color(COLOR_WHITE);
+        printf("Creating %d student records", N);
+        
+        gotoxy(center_x - 25, 12);
+        printf("Progress: [");
+        // Initial empty progress bar
+        for (int i = 0; i < 20; i++) printf(".");
+        printf("]");
+        
+        // Perform initial loading
+        initial_loading(N, &C2);
+        
+        // Update progress bar
+        gotoxy(center_x - 25 + 11, 12); // Position after "Progress: ["
+        set_color(COLOR_GREEN);
+        for (int i = 0; i < 20; i++) printf("#");
+        set_color(COLOR_WHITE);
+        
+        // Success message
+        gotoxy(center_x - 30, 15);
+        set_color(COLOR_CYAN);
+        printf("============================================================");
+        
+        gotoxy(center_x - 15, 17);
+        set_color(COLOR_GREEN);
+        printf("DATABASE CREATED SUCCESSFULLY!");
+        
+        gotoxy(center_x - 15, 19);
+        set_color(COLOR_WHITE);
+        printf("Creation cost C2: ");
+        set_color(COLOR_CYAN);
+        printf("%d", C2);
+        
+        gotoxy(center_x - 15, 20);
+        set_color(COLOR_WHITE);
+        printf("Index table size: ");
+        set_color(COLOR_CYAN);
+        printf("%d records", index_size);
+        
+        gotoxy(center_x - 15, 21);
+        set_color(COLOR_WHITE);
+        printf("Secondary indexes: ");
+        set_color(COLOR_CYAN);
+        printf("8 files created");
+    }
+    else
+    {
+        gotoxy(center_x - 10, y + 2);
+        set_color(COLOR_RED);
+        printf("Creation cancelled.");
+    }
+    
+    // Wait for user
+    gotoxy(center_x - 15, y + 5);
+    set_color(COLOR_YELLOW);
+    printf("Press Enter to continue...");
+    getchar();
+}
+
+/**
+ * Complete workflow for saving all index files
+ */
+void save_index_workflow()
+{
+    int width = get_terminal_width();
+    int height = get_terminal_height();
+    int center_x = width / 2;
+
+    CLEAR_SCREEN();
+    hide_cursor();
+
+    // Check if index is empty
+    if (index_size == 0)
+    {
+        gotoxy(center_x - 15, 8);
+        set_color(COLOR_RED);
+        printf("Index table is empty!");
+        
+        gotoxy(center_x - 20, 10);
+        set_color(COLOR_YELLOW);
+        printf("Please create or load an index first.");
+        
+        gotoxy(center_x - 15, 12);
+        printf("Press Enter to continue...");
+        getchar();
+        return;
+    }
+
+    // Show current index status
+    gotoxy(center_x - 20, 3);
+    set_color(COLOR_CYAN);
+    printf("SAVE ALL INDEX FILES");
+    
+    gotoxy(center_x - 30, 6);
+    set_color(COLOR_CYAN);
+    printf("============================================================");
+    
+    int y = 8;
+    
+    // Display index information
+    gotoxy(center_x - 25, y++);
+    set_color(COLOR_WHITE);
+    printf("Primary Index: ");
+    set_color(COLOR_BLUE);
+    printf("%d records", index_size);
+    
+    gotoxy(center_x - 25, y++);
+    set_color(COLOR_WHITE);
+    printf("File: ");
+    set_color(COLOR_GREEN);
+    printf("StudentID_INDEX.idx");
+    
+    y += 1;
+    
+    gotoxy(center_x - 25, y++);
+    set_color(COLOR_WHITE);
+    printf("Secondary Indexes:");
+    
+    if (index_size1 > 0)
+    {
+        gotoxy(center_x - 22, y++);
+        set_color(COLOR_CYAN);
+        printf("- DateBirth_INDEX.idx: %d records", index_size1);
+    }
+    
+    if (index_size2 > 0)
+    {
+        gotoxy(center_x - 22, y++);
+        set_color(COLOR_CYAN);
+        printf("- BloodType_INDEX.idx: %d records", index_size2);
+    }
+    
+    if (index_size3 > 0)
+    {
+        gotoxy(center_x - 22, y++);
+        set_color(COLOR_CYAN);
+        printf("- YearBirth_INDEX.idx: %d records", index_size3);
+    }
+    
+    y += 2;
+    
+    gotoxy(center_x - 25, y++);
+    set_color(COLOR_YELLOW);
+    printf("WARNING: Existing index files will be overwritten!");
+    
+    y += 2;
+    
+    gotoxy(center_x - 20, y++);
+    set_color(COLOR_WHITE);
+    printf("Save all 9 index files? (Y/N): ");
+    
+    show_cursor();
+    char confirm;
+    scanf(" %c", &confirm);
+    getchar();
+    
+    if (confirm == 'Y' || confirm == 'y')
+    {
+        // Clear screen for saving
+        CLEAR_SCREEN();
+        gotoxy(center_x - 15, 5);
+        set_color(COLOR_CYAN);
+        printf("SAVING INDEX FILES...");
+        
+        gotoxy(center_x - 30, 8);
+        set_color(COLOR_CYAN);
+        printf("============================================================");
+        
+        // Show progress
+        gotoxy(center_x - 25, 10);
+        set_color(COLOR_WHITE);
+        printf("Saving 9 index files to disk");
+        
+        gotoxy(center_x - 25, 12);
+        printf("Progress: [");
+        // Initial empty progress bar
+        for (int i = 0; i < 20; i++) printf(".");
+        printf("]");
+        
+        // Save all indexes
+        int cost;
+        save_indextable(index_pr, index_size, fname1, &C31);
+        
+        // Update progress bar in steps
+        gotoxy(center_x - 25 + 11, 12); // Position after "Progress: ["
+        set_color(COLOR_GREEN);
+        printf("####"); // 4/9 files
+        set_color(COLOR_WHITE);
+        
+        // Save secondary indexes
+        save_indextable(index_BooldType, index_size2, fname7, &cost);
+        save_indextable(index_Datebirth, index_size1, fname3, &cost);
+        save_indextable(index_Yearbirth, index_size3, fname2, &cost);
+        save_indextable(index_Monthbirth, index_size4, fname4, &cost);
+        
+        gotoxy(center_x - 25 + 11 + 4, 12);
+        set_color(COLOR_GREEN);
+        printf("########"); // 8 more files
+        set_color(COLOR_WHITE);
+        
+        save_indextable(index_Gender, index_size5, fname6, &cost);
+        save_indextable(index_YearStudy, index_size6, fname8, &cost);
+        save_indextable(index_Speciality, index_size7, fname9, &cost);
+        save_indextable(index_Wilayabirth, index_size8, fname5, &cost);
+        
+        gotoxy(center_x - 25 + 11 + 12, 12);
+        set_color(COLOR_GREEN);
+        printf("########"); // Complete the bar
+        set_color(COLOR_WHITE);
+        
+        // Success message
+        gotoxy(center_x - 30, 15);
+        set_color(COLOR_CYAN);
+        printf("============================================================");
+        
+        gotoxy(center_x - 15, 17);
+        set_color(COLOR_GREEN);
+        printf("INDEX FILES SAVED SUCCESSFULLY!");
+        
+        gotoxy(center_x - 15, 19);
+        set_color(COLOR_WHITE);
+        printf("Save cost C31: ");
+        set_color(COLOR_CYAN);
+        printf("%d", C31);
+        
+        gotoxy(center_x - 15, 20);
+        set_color(COLOR_WHITE);
+        printf("Files saved: ");
+        set_color(COLOR_CYAN);
+        printf("9 files");
+        
+        // Show file list
+        gotoxy(center_x - 25, 22);
+        set_color(COLOR_WHITE);
+        printf("Saved files:");
+        gotoxy(center_x - 23, 23);
+        set_color(COLOR_GRAY);
+        printf("StudentID_INDEX.idx, DateBirth_INDEX.idx, ...");
+    }
+    else
+    {
+        gotoxy(center_x - 10, y + 2);
+        set_color(COLOR_RED);
+        printf("Save cancelled.");
+    }
+    
+    // Wait for user
+    gotoxy(center_x - 15, y + 5);
+    set_color(COLOR_YELLOW);
+    printf("Press Enter to continue...");
+    getchar();
+}
+
+/**
+ * Complete workflow for loading all index files
+ */
+void load_index_workflow()
+{
+    int width = get_terminal_width();
+    int height = get_terminal_height();
+    int center_x = width / 2;
+
+    CLEAR_SCREEN();
+    hide_cursor();
+
+    // Confirmation screen
+    gotoxy(center_x - 20, 3);
+    set_color(COLOR_CYAN);
+    printf("LOAD ALL INDEX FILES");
+    
+    gotoxy(center_x - 30, 6);
+    set_color(COLOR_CYAN);
+    printf("============================================================");
+    
+    int y = 8;
+    
+    // Display what will be loaded
+    gotoxy(center_x - 25, y++);
+    set_color(COLOR_WHITE);
+    printf("Files to load:");
+    
+    gotoxy(center_x - 22, y++);
+    set_color(COLOR_GREEN);
+    printf("1. StudentID_INDEX.idx (Primary)");
+    
+    gotoxy(center_x - 22, y++);
+    set_color(COLOR_CYAN);
+    printf("2. DateBirth_INDEX.idx");
+    
+    gotoxy(center_x - 22, y++);
+    set_color(COLOR_CYAN);
+    printf("3. BloodType_INDEX.idx");
+    
+    gotoxy(center_x - 22, y++);
+    set_color(COLOR_CYAN);
+    printf("4. YearBirth_INDEX.idx");
+    
+    gotoxy(center_x - 22, y++);
+    set_color(COLOR_CYAN);
+    printf("5. MonthBirth_INDEX.idx");
+    
+    gotoxy(center_x - 22, y++);
+    set_color(COLOR_CYAN);
+    printf("6. Gender_INDEX.idx");
+    
+    gotoxy(center_x - 22, y++);
+    set_color(COLOR_CYAN);
+    printf("7. YearStudy_INDEX.idx");
+    
+    gotoxy(center_x - 22, y++);
+    set_color(COLOR_CYAN);
+    printf("8. Speciality_INDEX.idx");
+    
+    gotoxy(center_x - 22, y++);
+    set_color(COLOR_CYAN);
+    printf("9. WilayaBirth_INDEX.idx");
+    
+    y += 2;
+    
+    gotoxy(center_x - 25, y++);
+    set_color(COLOR_YELLOW);
+    printf("WARNING: Current index data will be replaced!");
+    
+    y += 2;
+    
+    gotoxy(center_x - 20, y++);
+    set_color(COLOR_WHITE);
+    printf("Load all 9 index files? (Y/N): ");
+    
+    show_cursor();
+    char confirm;
+    scanf(" %c", &confirm);
+    getchar();
+    
+    if (confirm == 'Y' || confirm == 'y')
+    {
+        // Clear screen for loading
+        CLEAR_SCREEN();
+        gotoxy(center_x - 15, 5);
+        set_color(COLOR_CYAN);
+        printf("LOADING INDEX FILES...");
+        
+        gotoxy(center_x - 30, 8);
+        set_color(COLOR_CYAN);
+        printf("============================================================");
+        
+        // Show progress
+        gotoxy(center_x - 25, 10);
+        set_color(COLOR_WHITE);
+        printf("Loading 9 index files from disk");
+        
+        gotoxy(center_x - 25, 12);
+        printf("Progress: [");
+        // Initial empty progress bar
+        for (int i = 0; i < 20; i++) printf(".");
+        printf("]");
+        
+        // Load all indexes
+        int cost1;
+        loadindextable(fname1, index_pr, &index_size, &C32);
+        
+        // Update progress bar in steps
+        gotoxy(center_x - 25 + 11, 12); // Position after "Progress: ["
+        set_color(COLOR_GREEN);
+        printf("####"); // 4/9 files
+        set_color(COLOR_WHITE);
+        
+        // Load secondary indexes
+        loadindextable(fname3, index_Datebirth, &index_size1, &cost1);
+        loadindextable(fname7, index_BooldType, &index_size2, &cost1);
+        loadindextable(fname2, index_Yearbirth, &index_size3, &cost1);
+        loadindextable(fname4, index_Monthbirth, &index_size4, &cost1);
+        
+        gotoxy(center_x - 25 + 11 + 4, 12);
+        set_color(COLOR_GREEN);
+        printf("########"); // 8 more files
+        set_color(COLOR_WHITE);
+        
+        loadindextable(fname6, index_Gender, &index_size5, &cost1);
+        loadindextable(fname8, index_YearStudy, &index_size6, &cost1);
+        loadindextable(fname9, index_Speciality, &index_size7, &cost1);
+        loadindextable(fname5, index_Wilayabirth, &index_size8, &cost1);
+        
+        gotoxy(center_x - 25 + 11 + 12, 12);
+        set_color(COLOR_GREEN);
+        printf("########"); // Complete the bar
+        set_color(COLOR_WHITE);
+        
+        // Success message
+        gotoxy(center_x - 30, 15);
+        set_color(COLOR_CYAN);
+        printf("============================================================");
+        
+        gotoxy(center_x - 15, 17);
+        set_color(COLOR_GREEN);
+        printf("INDEX FILES LOADED SUCCESSFULLY!");
+        
+        gotoxy(center_x - 15, 19);
+        set_color(COLOR_WHITE);
+        printf("Load cost C32: ");
+        set_color(COLOR_CYAN);
+        printf("%d", C32);
+        
+        gotoxy(center_x - 15, 20);
+        set_color(COLOR_WHITE);
+        printf("Primary index size: ");
+        set_color(COLOR_CYAN);
+        printf("%d records", index_size);
+        
+        if (index_size1 > 0)
+        {
+            gotoxy(center_x - 15, 21);
+            set_color(COLOR_WHITE);
+            printf("Secondary indexes: ");
+            set_color(COLOR_CYAN);
+            printf("8 files loaded");
+        }
+    }
+    else
+    {
+        gotoxy(center_x - 10, y + 2);
+        set_color(COLOR_RED);
+        printf("Load cancelled.");
+    }
+    
+    // Wait for user
+    gotoxy(center_x - 15, y + 5);
+    set_color(COLOR_YELLOW);
+    printf("Press Enter to continue...");
+    getchar();
+}
+
 void display_file_operations_menu()
 {
     CLEAR_SCREEN();
@@ -3167,27 +4346,12 @@ void display_file_operations_menu()
 
             switch (selection)
             {
-            case 1:
-            {
-                CLEAR_SCREEN();
-                printf("\n=== CREATE STUDENTS_ESI.BIN ===\n\n");
-
-                int N;
-                printf("Enter the number of initial records to load: ");
-                scanf("%d", &N);
-                getchar();
-
-                initial_loading(N, &C2);
-                printf("\nFile creation completed!\n");
-                printf("Cost C2: %d\n", C2);
-                displayPrIndexTableWithData(index_pr,index_size,fname,10);
-                //--------------------------------
-                printf("\n--------------------------\n");
-
+             case 1:
+                initial_loading_workflow();
                 operation_completed_prompt(0);
                 display_file_operations_menu();
                 return;
-            }
+                
             case 2:
             {
                 CLEAR_SCREEN();
@@ -3208,34 +4372,19 @@ void display_file_operations_menu()
                 display_file_operations_menu();
                 return;
             }
+                
             case 3:
-            {
-                CLEAR_SCREEN();
-                printf("\n=== SAVE INDEX TO FILE ===\n\n");
-                save_indextable(index_pr, index_size, fname1, &C31);
-                printf("Saving index to StudentID_INDEX.idx...\n");
-                printf("Index saved successfully!\n");
-                printf("Cost C31 would be displayed here.\n");
-                printf("The cost here is %d", C31);
-                CLEAR_SCREEN();
-                displayTOFIndexFile(fname1, 10);
+                save_index_workflow();
                 operation_completed_prompt(0);
                 display_file_operations_menu();
                 return;
-            }
+                
             case 4:
-            {
-                CLEAR_SCREEN();
-                printf("\n=== LOAD INDEX FROM FILE ===\n\n");
-                loadindextable(fname1, index_pr, &index_size, &C32);
-                printf("Loading index from StudentID_INDEX.idx...\n");
-                printf("Index loaded successfully!\n");
-                printf("Cost C32 would be displayed here.\n");
-
+                load_index_workflow();
                 operation_completed_prompt(0);
                 display_file_operations_menu();
                 return;
-            }
+               
             case 5:
                 return;
             }
@@ -3318,9 +4467,9 @@ void display_search_operations_menu()
     char *submenu_options[] = {
         "1. Search student by ID",
         "2. Insert new student",
-        "display table ta3 index ",
-        "4. Display students under 20 in year range",
-        "5. Display students by study year",
+        "3. display table ta3 index ",
+        "4. Delete Student ",
+        "5. modification of first name of student",
         "6. Return to Main Menu"};
 
     int num_options = 6;
@@ -3428,7 +4577,7 @@ void display_search_operations_menu()
             {
                 CLEAR_SCREEN();
                 //    displayPrIndexTableWithData(index_pr,index_size,fname,10);
-                display_pr_index(index_pr, index_size);
+                displayPrIndexTableWithData(index_pr, index_size, fname, 4);
                 operation_completed_prompt(0);
                 display_search_operations_menu();
                 return;
@@ -3436,11 +4585,7 @@ void display_search_operations_menu()
             case 4:
             {
                 CLEAR_SCREEN();
-                printf("\n=== DISPLAY STUDENTS UNDER 20 ===\n\n");
-
-                printf("Displaying students under 20 years old...\n");
-                printf("Cost C43 would be displayed here.\n");
-
+               delete_student_workflow();
                 operation_completed_prompt(0);
                 display_search_operations_menu();
                 return;
@@ -3448,11 +4593,8 @@ void display_search_operations_menu()
             case 5:
             {
                 CLEAR_SCREEN();
-                printf("\n=== DISPLAY BY STUDY YEAR ===\n\n");
 
-                printf("Displaying students by study year...\n");
-                printf("Cost C44 would be displayed here.\n");
-
+                modify_student_workflow();
                 operation_completed_prompt(0);
                 display_search_operations_menu();
                 return;
@@ -3804,11 +4946,14 @@ void press_any_key_to_continue()
 #endif
 }
 
+
+
+
 int main()
 {
     // Initialize
     srand(time(NULL));
-memset(index_pr, 0, MAX_INDEX * sizeof(Pr_index));
+    memset(index_pr, 0, MAX_INDEX * sizeof(Pr_index));
     // Display welcome screen
     display_welcome_screen();
 
