@@ -398,6 +398,14 @@ void displayPrIndexTableWithData(Pr_index *indexTable, int tableSize,
                     printf("%s", studentRecord.Wilaya_Birth);
                     currentLine += 2;
 
+                    // ADD BLOOD TYPE HERE - NEW SECTION
+                    gotoxy(center_x - 25, currentLine);
+                    set_color(COLOR_WHITE);
+                    printf("\n\t\t\tBlood Type: ");
+                    set_color(COLOR_MAGENTA); // Different color for blood type
+                    printf("%s", studentRecord.Blood_Type);
+                    currentLine += 2;
+
                     // Year and Speciality
                     gotoxy(center_x - 25, currentLine);
                     set_color(COLOR_WHITE);
@@ -411,13 +419,6 @@ void displayPrIndexTableWithData(Pr_index *indexTable, int tableSize,
                     set_color(COLOR_CYAN);
                     printf("%s", studentRecord.Speciality);
                     currentLine += 2;
-
-                    // Blood Type and Resident
-                    gotoxy(center_x - 25, currentLine);
-                    set_color(COLOR_WHITE);
-                    printf("\n\t\t\tBlood Type:");
-                    set_color(COLOR_CYAN);
-                    printf("%s", studentRecord.Blood_Type);
 
                     gotoxy(center_x + 5, currentLine);
                     set_color(COLOR_WHITE);
@@ -3341,18 +3342,6 @@ void show_confirmation_screen(char *Family_Name, char *First_Name, int Gender,
     if (confirm == 'Y' || confirm == 'y')
     {
         // Load ALL index tables including CP index
-        int C32 = 0;
-        loadindextable(fname1, index_pr, &index_size, &C32);
-        int cost1;
-        loadindextable(fname3, index_Datebirth, &index_size1, &cost1);
-        loadindextable(fname7, index_BooldType, &index_size2, &cost1);
-        loadindextable(fname2, index_Yearbirth, &index_size3, &cost1);
-        loadindextable(fname4, index_Monthbirth, &index_size4, &cost1);
-        loadindextable(fname6, index_Gender, &index_size5, &cost1);
-        loadindextable(fname8, index_YearStudy, &index_size6, &cost1);
-        loadindextable(fname9, index_Speciality, &index_size7, &cost1);
-        loadindextable(fname5, index_Wilayabirth, &index_size8, &cost1);
-        loadindextable(fname10, index_CP, &index_size_CP, &cost1); // Load CP index
 
         // Insert the new student
         int C34 = 0;
@@ -3365,23 +3354,23 @@ void show_confirmation_screen(char *Family_Name, char *First_Name, int Gender,
         int Student_ID = 0;
         bool found_after_insert;
         int position_after;
-        
+
         // We need to search for the student in the index
         // Since we just inserted it, it should be there
         // We'll search by matching the name and other details
         t_LnOVS *F;
         Open(&F, "STUDENTS_ESI.bin", 'E');
         block buffer;
-        
+
         // Find the student by searching through recent inserts
         // We'll look in the tail block where new students are usually added
         long tail_block = getHeader(F, "tail");
         ReadBlock(F, tail_block, &buffer);
-        
+
         // Find the last inserted student (should be our new student)
         Pr_cor new_coords;
         int found_student_id = 0;
-        
+
         for (int i = buffer.Nb - 1; i >= 0; i--)
         {
             rec student = buffer.tab[i];
@@ -3395,9 +3384,9 @@ void show_confirmation_screen(char *Family_Name, char *First_Name, int Gender,
                 break;
             }
         }
-        
+
         Close(F);
-        
+
         // If we found the student, insert into secondary indexes
         if (found_student_id > 0)
         {
@@ -3410,7 +3399,7 @@ void show_confirmation_screen(char *Family_Name, char *First_Name, int Gender,
             int day_birth_value = Date_Birth.day;
             int gender_value = Gender;
             int wilaya_value = 0;
-            
+
             // Find blood type value
             for (int i = 0; i < 8; i++)
             {
@@ -3420,7 +3409,7 @@ void show_confirmation_screen(char *Family_Name, char *First_Name, int Gender,
                     break;
                 }
             }
-            
+
             // Find year of study value
             for (int i = 0; i < 5; i++)
             {
@@ -3430,10 +3419,10 @@ void show_confirmation_screen(char *Family_Name, char *First_Name, int Gender,
                     break;
                 }
             }
-            
+
             // Find speciality value
             // For 1CP, 2CP, 1CS - speciality value is 0
-            if (strcmp(Year_Study, "1CP") == 0 || 
+            if (strcmp(Year_Study, "1CP") == 0 ||
                 strcmp(Year_Study, "2CP") == 0 ||
                 strcmp(Year_Study, "1CS") == 0)
             {
@@ -3445,7 +3434,7 @@ void show_confirmation_screen(char *Family_Name, char *First_Name, int Gender,
                 int year_index = year_study_value - 1; // Convert to 0-based
                 for (int j = 0; j < 10; j++)
                 {
-                    if (strlen(specs[year_index].subspec[j].name) > 0 && 
+                    if (strlen(specs[year_index].subspec[j].name) > 0 &&
                         strcmp(Speciality_name, specs[year_index].subspec[j].name) == 0)
                     {
                         speciality_value = j + 1;
@@ -3453,7 +3442,7 @@ void show_confirmation_screen(char *Family_Name, char *First_Name, int Gender,
                     }
                 }
             }
-            
+
             // Find wilaya value
             for (int i = 0; i < 58; i++)
             {
@@ -3463,7 +3452,7 @@ void show_confirmation_screen(char *Family_Name, char *First_Name, int Gender,
                     break;
                 }
             }
-            
+
             // Insert into ALL secondary indexes
             Insert_index(index_BooldType, &index_size2, blood_value, new_coords.block_number, new_coords.offset);
             Insert_index(index_Speciality, &index_size7, speciality_value, new_coords.block_number, new_coords.offset);
@@ -3473,7 +3462,7 @@ void show_confirmation_screen(char *Family_Name, char *First_Name, int Gender,
             Insert_index(index_Datebirth, &index_size1, day_birth_value, new_coords.block_number, new_coords.offset);
             Insert_index(index_Gender, &index_size5, gender_value, new_coords.block_number, new_coords.offset);
             Insert_index(index_Wilayabirth, &index_size8, wilaya_value, new_coords.block_number, new_coords.offset);
-            
+
             // Also insert into CP index if student is 1CP or 2CP
             if (strcmp(Year_Study, "1CP") == 0 || strcmp(Year_Study, "2CP") == 0)
             {
@@ -3482,9 +3471,9 @@ void show_confirmation_screen(char *Family_Name, char *First_Name, int Gender,
                 ReadBlock(F, new_coords.block_number, &buffer);
                 rec student_record = buffer.tab[new_coords.offset];
                 Close(F);
-                
-                Insert_index_CP(index_CP, &index_size_CP, found_student_id, 
-                               student_record, new_coords.block_number, new_coords.offset);
+
+                Insert_index_CP(index_CP, &index_size_CP, found_student_id,
+                                student_record, new_coords.block_number, new_coords.offset);
             }
         }
 
@@ -3513,7 +3502,7 @@ void show_confirmation_screen(char *Family_Name, char *First_Name, int Gender,
         gotoxy(center_x - 15, y);
         set_color(COLOR_CYAN);
         printf("Insertion cost C34: %d", C34);
-        
+
         // Show student ID if found
         if (found_student_id > 0)
         {
@@ -3521,7 +3510,7 @@ void show_confirmation_screen(char *Family_Name, char *First_Name, int Gender,
             gotoxy(center_x - 15, y);
             set_color(COLOR_WHITE);
             printf("Student ID: %d", found_student_id);
-            
+
             y += 1;
             gotoxy(center_x - 15, y);
             printf("Added to all index tables.");

@@ -912,31 +912,60 @@ int Delete_from_index(Pr_index indextable[], int *Size, int StudentID)
       return 1;
    }
 }
+// FIXED: simple_search with bounds checking and validation
 int simple_search(Pr_index indextable[], int Size, int block_number, int offset)
 {
+   // Validate input parameters
+   if (Size <= 0 || block_number <= 0 || offset < 0)
+   {
+      return -1; // Invalid parameters
+   }
+   
    for (int i = 0; i < Size; i++)
    {
-      if (indextable[i].crdt.block_number == block_number && indextable[i].crdt.offset == offset)
+      if (indextable[i].crdt.block_number == block_number && 
+          indextable[i].crdt.offset == offset)
       {
-         return i;
+         return i; // Found at position i
       }
    }
-   return -1; // Return -1 if not found
+   return -1; // Not found
 }
 
+// FIXED: Delete_from_index1 with proper error handling
 int Delete_from_index1(Pr_index indextable[], int *Size, int block_number, int offset)
 {
-
+   // Validate parameters first
+   if (*Size <= 0 || block_number <= 0 || offset < 0 || indextable == NULL)
+   {
+      return 0; // Invalid parameters or empty table
+   }
+   
    int pos = simple_search(indextable, *Size, block_number, offset);
-
+   
+   if (pos == -1)
+   {
+      // Element not found - nothing to delete
+      return 0;
+   }
+   
+   // Validate that pos is within bounds (should be, but double-check)
+   if (pos < 0 || pos >= *Size)
+   {
+      return 0; // Invalid position
+   }
+   
+   // Shift elements to the left to remove the element at pos
    for (int k = pos; k < *Size - 1; k++)
    {
       indextable[k] = indextable[k + 1];
    }
+   
+   // Decrement size
    (*Size)--;
-   return 1;
+   
+   return 1; // Success
 }
-
 int Delete_by_student_ID(Pr_index indextable[], int *Size, int StudentID, char *fname, int *C35)
 {
    *C35 = 0;
