@@ -51,7 +51,7 @@ typedef struct LnOVS_file
    FILE *f;  // C stream implementing the file
    header h; // the header in main memory
 } t_LnOVS;
-// The fundalental functions
+// Core file operation functions
 
 // the structures related to the primary index table
 
@@ -77,7 +77,7 @@ typedef struct
 object1 wilayas[58] = {
     {1, "Adrar"}, {2, "Chlef"}, {3, "Laghouat"}, {4, "Oum El Bouaghi"}, {5, "Batna"}, {6, "Bejaia"}, {7, "Biskra"}, {8, "Bechar"}, {9, "Blida"}, {10, "Bouira"}, {11, "Tamanrasset"}, {12, "Tebessa"}, {13, "Tlemcen"}, {14, "Tiaret"}, {15, "Tizi Ouzou"}, {16, "Algiers"}, {17, "Djelfa"}, {18, "Jijel"}, {19, "Setif"}, {20, "Saida"}, {21, "Skikda"}, {22, "Sidi Bel Abbes"}, {23, "Annaba"}, {24, "Guelma"}, {25, "Constantine"}, {26, "Medea"}, {27, "Mostaganem"}, {28, "M'Sila"}, {29, "Mascara"}, {30, "Ouargla"}, {31, "Oran"}, {32, "El Bayadh"}, {33, "Illizi"}, {34, "Bordj Bou Arreridj"}, {35, "Boumerdes"}, {36, "El Tarf"}, {37, "Tindouf"}, {38, "Tissemsilt"}, {39, "El Oued"}, {40, "Khenchela"}, {41, "Souk Ahras"}, {42, "Tipaza"}, {43, "Mila"}, {44, "Ain Defla"}, {45, "Naama"}, {46, "Ain Temouchent"}, {47, "Ghardaia"}, {48, "Relizane"}, {49, "Timimoun"}, {50, "Bordj Badji Mokhtar"}, {51, "Ouled Djellal"}, {52, "Béni Abbès"}, {53, "In Salah"}, {54, "In Guezzam"}, {55, "Touggourt"}, {56, "Djanet"}, {57, "El Meghaier"}, {58, "El Menia"}};
 
-object1 Blood_Types[8] = {{1, " O+"}, {2, " A+"}, {3, "B+"}, {4, " O-"}, {5, "A-"}, {6, " AB+"}, {7, "B-"}, {8, "AB-"}};
+object1 Blood_Types[8] = {{1, "O+"}, {2, "A+"}, {3, "B+"}, {4, "O-"}, {5, "A-"}, {6, "AB+"}, {7, "B-"}, {8, "AB-"}};
 
 typedef struct
 {
@@ -91,7 +91,6 @@ typedef struct
 
 } Speciality;
 
-// FIXED: Added proper braces for array initialization
 Speciality specs[5] = {
     {"1CP", {{"Integrated Preparatory Classes"}}},
     {"2CP", {{"Integrated Preparatory Classes"}}},
@@ -162,8 +161,8 @@ void Open(t_LnOVS **F, char *fname, char mode)
       fwrite(&((*F)->h), sizeof(header), 1, (*F)->f);
       // writing the first allocated block
       buf.next = -1;
-      buf.prev = -1; // Added: initialize prev
-      buf.Nb = 0;    // Added: initialize Nb
+      buf.prev = -1;
+      buf.Nb = 0;
       fwrite(&buf, sizeof(block), 1, (*F)->f);
    }
 } // LnOVS_open
@@ -314,7 +313,7 @@ long getHeader(t_LnOVS *F, char *hname)
    if (strcmp(hname, "freeblck") == 0)
       return F->h.freeblck;
    fprintf(stderr, "getHeader : Unknown headerName: \"%s\"\n", hname);
-   return -1; // Added: return value for error case
+   return -1;
 }
 
 int getHeader_ip(TOF_ip *F, char *hname)
@@ -322,7 +321,7 @@ int getHeader_ip(TOF_ip *F, char *hname)
    if (strcmp(hname, "nblk") == 0)
       return F->head.nblk;
    fprintf(stderr, "getHeader : Unknown headerName: \"%s\"\n", hname);
-   return -1; // Added: return value for error case
+   return -1;
 }
 
 // allocate a new block to the file
@@ -417,11 +416,11 @@ int Insert_Pr_index(Pr_index *index_table, int *Size,
    index_table[i].Identifier = ID;
    index_table[i].crdt.block_number = block_number;
    index_table[i].crdt.offset = offset;
-   
 
    (*Size)++;
    return 0;
 }
+
 int Insert_index(Pr_index index_table[], int *Size, int ID, int block_number, int offset)
 {
    bool found;
@@ -439,7 +438,45 @@ int Insert_index(Pr_index index_table[], int *Size, int ID, int block_number, in
    index_table[i].crdt.offset = offset;
 
    (*Size)++;
-   return 0; // Added: return value
+   return 0;
+}
+
+int Insert_index_CP(Pr_index index_table[], int *Size, int ID, rec buff, int block_number, int offset)
+{
+   // Check if student is 1CP or 2CP
+   // Also check that student is not deleted
+   if (buff.Student_ID != -1 &&
+       (strcmp(buff.Year_Study, "1CP") == 0 || strcmp(buff.Year_Study, "2CP") == 0))
+   {
+      bool found;
+      int i;
+      int K = *Size;
+
+      binary_search(index_table, *Size, ID, &found, &i);
+
+      // If student already exists in CP index, don't insert duplicate
+      if (found)
+      {
+         return 0; // Already exists
+      }
+
+      // Shift elements to make room
+      while (K >= i + 1)
+      {
+         index_table[K] = index_table[K - 1];
+         K--;
+      }
+
+      // Insert the new entry
+      index_table[i].Identifier = ID;
+      index_table[i].crdt.block_number = block_number;
+      index_table[i].crdt.offset = offset;
+
+      (*Size)++;
+      return 1; // Return 1 to indicate successful insertion
+   }
+
+   return 0; // Return 0 if not a CP student or if student is deleted
 }
 
 // additional functions
@@ -452,13 +489,12 @@ void random_name(char name[30])
 {
    int i = rand_number(30, 4);
 
-   // FIXED: Start from 0 and add null terminator
    for (int j = 0; j < i; j++)
    {
       int k = rand_number(26, 1);
       name[j] = k + 64;
    }
-   name[i] = '\0'; // Added: null terminator
+   name[i] = '\0';
 }
 
 int isLeapYear(int year)
@@ -698,8 +734,6 @@ int save_indextable(Pr_index index_table[], int Size, char *fname, int *C31)
 
    Close_TOF(F);
 
-  
-
    return 0;
 }
 
@@ -725,7 +759,6 @@ int loadindextable(char *filename, Pr_index indextable[], int *Size, int *C32)
       return 0; // Success - just empty file
    }
 
-
    for (int i = 1; i <= Number_of_blocks; i++)
    {
       ReadBlock_ip(F, i, &buf);
@@ -748,8 +781,6 @@ int loadindextable(char *filename, Pr_index indextable[], int *Size, int *C32)
    }
 
    Close_TOF(F);
-
-   
 
    return 0; // Return success
 }
@@ -857,7 +888,7 @@ int insert_newStudent(char *filename, Pr_index indextable[], int *Size, int Gend
 
    Close(F);
 
-   return 0; // Added: return value
+   return 0;
 }
 
 int Delete_from_index(Pr_index indextable[], int *Size, int StudentID)
@@ -893,10 +924,8 @@ int simple_search(Pr_index indextable[], int Size, int block_number, int offset)
    return -1; // Return -1 if not found
 }
 
-int Delete_from_index1(Pr_index indextable[], int *Size,  int block_number, int offset)
+int Delete_from_index1(Pr_index indextable[], int *Size, int block_number, int offset)
 {
-  
-  
 
    int pos = simple_search(indextable, *Size, block_number, offset);
 
@@ -977,7 +1006,7 @@ int Delete_by_student_ID(Pr_index indextable[], int *Size, int StudentID, char *
       }
 
       Close(F);
-      return 1; // Added: return value
+      return 1;
    }
 }
 
@@ -1039,7 +1068,7 @@ int Insert_Pr_index_multiples(Pr_index index_table[], int *Size, int ID, int blo
    index_table[i].crdt.offset = offset;
 
    (*Size)++;
-   return 0; // Added: return value
+   return 0;
 }
 
 int modification_first_name(int StudentID, char *firstname, Pr_index indextable[], int Size, char *fname, int *C36)
@@ -1076,4 +1105,715 @@ int modification_first_name(int StudentID, char *firstname, Pr_index indextable[
    }
 }
 
+//=========================================================================================
+// Display functions
+//=========================================================================================
+int find_value_Upper_bound_index(Pr_index index_table[], int size, int value)
+{
+
+   bool found;
+   int i;
+
+   binary_search(index_table, size, value, &found, &i);
+
+   if (found)
+   {
+
+      while (i > 0 && index_table[i - 1].Identifier == value)
+      {
+         i--;
+      }
+
+      return i;
+   }
+   else
+   {
+
+      printf("None in the list has that type of blood\n");
+      return -1;
+   }
+};
+
+// 4.1. Question  Display students by thier blood type
+
+void display_students_by_Blood(Pr_index index_table[], int size, int value, char *fname, int *C41)
+{
+   int start = find_value_Upper_bound_index(index_table, size, value);
+   if (start < 0)
+   {
+      return;
+   }
+
+   t_LnOVS *F;
+   block buffer;
+   rec record;
+   Open(&F, fname, 'E');
+
+   // Print table header
+   printf("\n==============================================================================================================================================\n");
+   printf("  ID   | Name                     | Gender | Birth Date  | Wilaya          | Blood  | Year  | Speciality                | Resident | Block,Offset\n");
+   printf("-------+--------------------------+--------+-------------+-----------------+--------+-------+---------------------------+----------+-------------\n");
+
+   int k = start;
+   while ((k < size) && (index_table[k].Identifier == value))
+   {
+      if (index_table[k].Identifier == value)
+      {
+
+         Pr_cor coordinats = index_table[k].crdt;
+         ReadBlock(F, coordinats.block_number, &buffer);
+         if (C41 != NULL)
+         {
+            (*C41)++;
+         }
+         record = buffer.tab[coordinats.offset];
+
+         // Format full name
+         char fullName[26];
+         snprintf(fullName, sizeof(fullName), "%s %s", record.Family_Name, record.First_Name);
+         if (strlen(fullName) > 24)
+         {
+            fullName[21] = '.';
+            fullName[22] = '.';
+            fullName[23] = '.';
+            fullName[24] = '\0';
+         }
+
+         // Format wilaya
+         char wilaya[17];
+         strncpy(wilaya, record.Wilaya_Birth, 16);
+         wilaya[16] = '\0';
+         if (strlen(record.Wilaya_Birth) > 16)
+         {
+            wilaya[13] = '.';
+            wilaya[14] = '.';
+            wilaya[15] = '.';
+         }
+
+         // Format speciality
+         char speciality[27];
+         strncpy(speciality, record.Speciality, 26);
+         speciality[26] = '\0';
+         if (strlen(record.Speciality) > 26)
+         {
+            speciality[23] = '.';
+            speciality[24] = '.';
+            speciality[25] = '.';
+         }
+
+         // Print student row
+         printf(" %-5d | %-24s | %-6s | %02d/%02d/%04d | %-15s | %-6s | %-5s | %-25s | %-8s | (%d,%d)\n",
+                record.Student_ID,
+                fullName,
+                record.Gender == 1 ? "Male" : "Female",
+                record.Date_Birth.day,
+                record.Date_Birth.month,
+                record.Date_Birth.year,
+                wilaya,
+                record.Blood_Type,
+                record.Year_Study,
+                speciality,
+                record.Resident_UC ? "Yes" : "No",
+                coordinats.block_number,
+                coordinats.offset);
+      }
+      k++;
+   }
+
+   printf("==============================================================================================================================================\n\n");
+
+   if (C41 != NULL)
+   {
+      printf("The complexity in this operation is: %d\n", *C41);
+   }
+
+   Close(F);
+}
+
+// 4.2. Question  Display students by thier speciality
+void display_students_by_Speciality(Pr_index index_table[], int size, int value, char *fname, int *C42)
+{
+   int start = find_value_Upper_bound_index(index_table, size, value);
+   if (start < 0)
+   {
+      return;
+   }
+
+   t_LnOVS *F;
+   block buffer;
+   rec record;
+   Open(&F, fname, 'E');
+
+   // Print table header
+   printf("\n==============================================================================================================================================\n");
+   printf("  ID   | Name                     | Gender | Birth Date  | Wilaya          | Blood  | Year  | Speciality                | Resident | Block,Offset\n");
+   printf("-------+--------------------------+--------+-------------+-----------------+--------+-------+---------------------------+----------+-------------\n");
+
+   int k = start;
+   while ((k < size) && (index_table[k].Identifier == value))
+   {
+      if (index_table[k].Identifier == value)
+      {
+
+         Pr_cor coordinats = index_table[k].crdt;
+         ReadBlock(F, coordinats.block_number, &buffer);
+         if (C42 != NULL)
+         {
+            (*C42)++;
+         }
+
+         record = buffer.tab[coordinats.offset];
+
+         // Format full name
+         char fullName[26];
+         snprintf(fullName, sizeof(fullName), "%s %s", record.Family_Name, record.First_Name);
+         if (strlen(fullName) > 24)
+         {
+            fullName[21] = '.';
+            fullName[22] = '.';
+            fullName[23] = '.';
+            fullName[24] = '\0';
+         }
+
+         // Format wilaya
+         char wilaya[17];
+         strncpy(wilaya, record.Wilaya_Birth, 16);
+         wilaya[16] = '\0';
+         if (strlen(record.Wilaya_Birth) > 16)
+         {
+            wilaya[13] = '.';
+            wilaya[14] = '.';
+            wilaya[15] = '.';
+         }
+
+         // Format speciality
+         char speciality[27];
+         strncpy(speciality, record.Speciality, 26);
+         speciality[26] = '\0';
+         if (strlen(record.Speciality) > 26)
+         {
+            speciality[23] = '.';
+            speciality[24] = '.';
+            speciality[25] = '.';
+         }
+
+         // Print student row
+         printf(" %-5d | %-24s | %-6s | %02d/%02d/%04d | %-15s | %-6s | %-5s | %-25s | %-8s | (%d,%d)\n",
+                record.Student_ID,
+                fullName,
+                record.Gender == 1 ? "Male" : "Female",
+                record.Date_Birth.day,
+                record.Date_Birth.month,
+                record.Date_Birth.year,
+                wilaya,
+                record.Blood_Type,
+                record.Year_Study,
+                speciality,
+                record.Resident_UC ? "Yes" : "No",
+                coordinats.block_number,
+                coordinats.offset);
+      }
+      k++;
+   }
+
+   printf("==============================================================================================================================================\n\n");
+
+   if (C42 != NULL)
+   {
+      printf("The complexity in this operation is: %d\n", *C42);
+   }
+
+   Close(F);
+}
+
+// 4.3. Question  Display students interval of birthday in intrval Y1 Y2
+void display_students_by_birth_interval(Pr_index index_table[], int size, int Y1, int Y2, char *fname, int *C43)
+{
+   // Validate input years
+   if (Y1 < 2003 || Y1 > 2008 || Y2 < 2003 || Y2 > 2008)
+   {
+      printf("\nError: Years must be between 2003 and 2008.\n");
+      return;
+   }
+
+   if (Y1 > Y2)
+   {
+      printf("\nError: Start year (Y1) must be less than or equal to end year (Y2).\n");
+      return;
+   }
+
+   int start = find_value_Upper_bound_index(index_table, size, Y1);
+   bool found;
+   int var;
+   if (start < 0)
+   {
+      return;
+   }
+
+   t_LnOVS *F;
+   block buffer;
+   rec record;
+   Open(&F, fname, 'E');
+
+   // Print table header
+   printf("\n==============================================================================================================================================\n");
+   printf("  ID   | Name                     | Gender | Birth Date  | Wilaya          | Blood  | Year  | Speciality                | Resident | Block,Offset\n");
+   printf("-------+--------------------------+--------+-------------+-----------------+--------+-------+---------------------------+----------+-------------\n");
+
+   int k = start;
+   while ((k < size) && (index_table[k].Identifier <= Y2))
+   {
+      if ((index_table[k].Identifier <= Y2) && (index_table[k].Identifier >= Y1))
+      {
+
+         Pr_cor coordinats = index_table[k].crdt;
+         ReadBlock(F, coordinats.block_number, &buffer);
+         if (C43 != NULL)
+         {
+            (*C43)++;
+         }
+
+         record = buffer.tab[coordinats.offset];
+         if ((2025 - record.Date_Birth.year) <= 20)
+         {
+            // Format full name
+            char fullName[26];
+            snprintf(fullName, sizeof(fullName), "%s %s", record.Family_Name, record.First_Name);
+            if (strlen(fullName) > 24)
+            {
+               fullName[21] = '.';
+               fullName[22] = '.';
+               fullName[23] = '.';
+               fullName[24] = '\0';
+            }
+
+            // Format wilaya
+            char wilaya[17];
+            strncpy(wilaya, record.Wilaya_Birth, 16);
+            wilaya[16] = '\0';
+            if (strlen(record.Wilaya_Birth) > 16)
+            {
+               wilaya[13] = '.';
+               wilaya[14] = '.';
+               wilaya[15] = '.';
+            }
+
+            // Format speciality
+            char speciality[27];
+            strncpy(speciality, record.Speciality, 26);
+            speciality[26] = '\0';
+            if (strlen(record.Speciality) > 26)
+            {
+               speciality[23] = '.';
+               speciality[24] = '.';
+               speciality[25] = '.';
+            }
+
+            // Print student row
+            printf(" %-5d | %-24s | %-6s | %02d/%02d/%04d | %-15s | %-6s | %-5s | %-25s | %-8s | (%d,%d)\n",
+                   record.Student_ID,
+                   fullName,
+                   record.Gender == 1 ? "Male" : "Female",
+                   record.Date_Birth.day,
+                   record.Date_Birth.month,
+                   record.Date_Birth.year,
+                   wilaya,
+                   record.Blood_Type,
+                   record.Year_Study,
+                   speciality,
+                   record.Resident_UC ? "Yes" : "No",
+                   coordinats.block_number,
+                   coordinats.offset);
+         }
+      }
+      k++;
+   }
+
+   printf("==============================================================================================================================================\n\n");
+
+   if (C43 != NULL)
+   {
+      printf("The complexity in this operation is: %d\n", *C43);
+   }
+
+   Close(F);
+}
+
+// 4.4. Question  Display students by thier year of study
+void display_students_by_year_study(Pr_index index_table[], int size, int value, char *fname, int *C44)
+{
+   int start = find_value_Upper_bound_index(index_table, size, value);
+   if (start < 0)
+   {
+      return;
+   }
+
+   t_LnOVS *F;
+   block buffer;
+   rec record;
+   int k = start;
+
+   Open(&F, fname, 'E');
+
+   // Print table header
+   printf("\n==============================================================================================================================================\n");
+   printf("  ID   | Name                     | Gender | Birth Date  | Wilaya          | Blood  | Year  | Speciality                | Resident | Block,Offset\n");
+   printf("-------+--------------------------+--------+-------------+-----------------+--------+-------+---------------------------+----------+-------------\n");
+
+   while ((k < size) && (index_table[k].Identifier == value))
+   {
+      if (index_table[k].Identifier == value)
+      {
+
+         Pr_cor coordinats = index_table[k].crdt;
+         ReadBlock(F, coordinats.block_number, &buffer);
+         if (C44 != NULL)
+         {
+            (*C44)++;
+         }
+
+         record = buffer.tab[coordinats.offset];
+
+         // Format full name
+         char fullName[26];
+         snprintf(fullName, sizeof(fullName), "%s %s", record.Family_Name, record.First_Name);
+         if (strlen(fullName) > 24)
+         {
+            fullName[21] = '.';
+            fullName[22] = '.';
+            fullName[23] = '.';
+            fullName[24] = '\0';
+         }
+
+         // Format wilaya
+         char wilaya[17];
+         strncpy(wilaya, record.Wilaya_Birth, 16);
+         wilaya[16] = '\0';
+         if (strlen(record.Wilaya_Birth) > 16)
+         {
+            wilaya[13] = '.';
+            wilaya[14] = '.';
+            wilaya[15] = '.';
+         }
+
+         // Format speciality
+         char speciality[27];
+         strncpy(speciality, record.Speciality, 26);
+         speciality[26] = '\0';
+         if (strlen(record.Speciality) > 26)
+         {
+            speciality[23] = '.';
+            speciality[24] = '.';
+            speciality[25] = '.';
+         }
+
+         // Print student row
+         printf(" %-5d | %-24s | %-6s | %02d/%02d/%04d | %-15s | %-6s | %-5s | %-25s | %-8s | (%d,%d)\n",
+                record.Student_ID,
+                fullName,
+                record.Gender == 1 ? "Male" : "Female",
+                record.Date_Birth.day,
+                record.Date_Birth.month,
+                record.Date_Birth.year,
+                wilaya,
+                record.Blood_Type,
+                record.Year_Study,
+                speciality,
+                record.Resident_UC ? "Yes" : "No",
+                coordinats.block_number,
+                coordinats.offset);
+      }
+      k++;
+   }
+
+   printf("==============================================================================================================================================\n\n");
+
+   if (C44 != NULL)
+   {
+      printf("The complexity in this operation is: %d\n", *C44);
+   }
+
+   Close(F);
+}
+
+void display_header(t_LnOVS *F, char *Fname)
+{
+
+   Open(&F, Fname, 'E');
+
+   long head = F->h.head; // the first block in the file (i.e. the head block of the list of blocks)
+   long tail = F->h.tail;
+   long freepos = F->h.freepos; // the first free position in the last block (i.e. in the tail block of the list)
+
+   long lostspace = F->h.lostspace; // the total space lost due to logical deletions
+   long newblck = F->h.newblck;     // the file border (the first free block available to expand the file size)
+   long freeblck = F->h.freeblck;
+
+   printf("\n========================================================\n");
+   printf("                  FILE HEADER INFORMATION\n");
+   printf("========================================================\n");
+   printf("  File Name            : %s\n", Fname);
+   printf("  Head Block           : %ld (First block in the list)\n", head);
+   printf("  Tail Block           : %ld (Last block in the list)\n", tail);
+   printf("  Free Position        : %ld (First free position in tail block)\n", freepos);
+   printf("  Lost Space           : %ld (Space lost due to logical deletions)\n", lostspace);
+   printf("  New Block Border     : %ld (Next new block to allocate)\n", newblck);
+   printf("  Free Block List Head : %ld (Head of freed blocks list)\n", freeblck);
+   printf("========================================================\n\n");
+
+   Close(F);
+}
+
+void display_block(t_LnOVS *F, int blkN, char *Fname)
+{
+   Open(&F, Fname, 'E');
+   block buff;
+   ReadBlock(F, blkN, &buff);
+
+   printf("\n========================================\n");
+   printf("         BLOCK %d DETAILS\n", blkN);
+   printf("========================================\n");
+   printf("Number of records: %d\n", buff.Nb);
+   printf("Next block: %ld\n", buff.next);
+   printf("Previous block: %ld\n", buff.prev);
+   printf("========================================\n\n");
+
+   if (buff.Nb == 0)
+   {
+      printf("Block is empty.\n\n");
+   }
+   else
+   {
+      printf("==============================================================================================================================================\n");
+      printf("  ID   | Name                     | Gender | Birth Date  | Wilaya          | Blood  | Year  | Speciality                | Resident\n");
+      printf("-------+--------------------------+--------+-------------+-----------------+--------+-------+---------------------------+----------\n");
+
+      for (int n = 0; n < buff.Nb; n++)
+      {
+         rec student = buff.tab[n];
+
+         // Format full name
+         char fullName[26];
+         snprintf(fullName, sizeof(fullName), "%s %s", student.Family_Name, student.First_Name);
+         if (strlen(fullName) > 24)
+         {
+            fullName[21] = '.';
+            fullName[22] = '.';
+            fullName[23] = '.';
+            fullName[24] = '\0';
+         }
+
+         // Format wilaya
+         char wilaya[17];
+         strncpy(wilaya, student.Wilaya_Birth, 16);
+         wilaya[16] = '\0';
+         if (strlen(student.Wilaya_Birth) > 16)
+         {
+            wilaya[13] = '.';
+            wilaya[14] = '.';
+            wilaya[15] = '.';
+         }
+
+         // Format speciality
+         char speciality[27];
+         strncpy(speciality, student.Speciality, 26);
+         speciality[26] = '\0';
+         if (strlen(student.Speciality) > 26)
+         {
+            speciality[23] = '.';
+            speciality[24] = '.';
+            speciality[25] = '.';
+         }
+
+         // Print student row
+         printf(" %-5d | %-24s | %-6s | %02d/%02d/%04d | %-15s | %-6s | %-5s | %-25s | %-8s\n",
+                student.Student_ID,
+                fullName,
+                student.Gender == 1 ? "Male" : "Female",
+                student.Date_Birth.day,
+                student.Date_Birth.month,
+                student.Date_Birth.year,
+                wilaya,
+                student.Blood_Type,
+                student.Year_Study,
+                speciality,
+                student.Resident_UC ? "Yes" : "No");
+      }
+
+      printf("==============================================================================================================================================\n\n");
+   }
+
+   Close(F);
+}
+
+// dipaly all the content of the file
+
+void DisplayAllContentsTableFileName(t_LnOVS *F, char *Fname)
+{
+   block currentBlock;
+   rec studentRecord;
+   Open(&F, Fname, 'E');
+   printf("\n=========================================================================================================\n");
+   printf("                                     STUDENT DATABASE - TABLE VIEW\n");
+   printf("=========================================================================================================\n");
+   printf(" ID   | Name                     | Gender | Birth Date  | Wilaya        | Year  | Speciality             \n");
+   printf("------+--------------------------+--------+-------------+---------------+-------+------------------------\n");
+
+   long currentBlockNum = getHeader(F, "head");
+   long tailBlock = getHeader(F, "tail");
+   long freePos = getHeader(F, "freepos");
+   int recordCount = 0;
+
+   while (currentBlockNum != -1)
+   {
+      ReadBlock(F, currentBlockNum, &currentBlock);
+
+      int maxRecords = currentBlock.Nb;
+      if (currentBlockNum == tailBlock)
+      {
+         maxRecords = freePos;
+      }
+
+      for (int i = 0; i < maxRecords; i++)
+      {
+         studentRecord = currentBlock.tab[i];
+
+         // Skip deleted records (if Student_ID = -1)
+         if (studentRecord.Student_ID == -1)
+            continue;
+
+         recordCount++;
+
+         // Format name
+         char fullName[35];
+         snprintf(fullName, sizeof(fullName), "%s %s",
+                  studentRecord.Family_Name, studentRecord.First_Name);
+
+         // Truncate if too long
+         if (strlen(fullName) > 22)
+         {
+            fullName[19] = '.';
+            fullName[20] = '.';
+            fullName[21] = '.';
+            fullName[22] = '\0';
+         }
+
+         // Format speciality
+         char speciality[20];
+         strncpy(speciality, studentRecord.Speciality, 19);
+         speciality[19] = '\0';
+         if (strlen(studentRecord.Speciality) > 19)
+         {
+            speciality[16] = '.';
+            speciality[17] = '.';
+            speciality[18] = '.';
+         }
+
+         // Format wilaya
+         char wilaya[20];
+         strncpy(wilaya, studentRecord.Wilaya_Birth, 19);
+         wilaya[19] = '\0';
+         if (strlen(studentRecord.Wilaya_Birth) > 19)
+         {
+            wilaya[16] = '.';
+            wilaya[17] = '.';
+            wilaya[18] = '.';
+         }
+
+         // Format year
+         char year[10];
+         strncpy(year, studentRecord.Year_Study, 9);
+         year[9] = '\0';
+
+         printf(" %-5d| %-24s| %-7s| %02d/%02d/%04d | %-15s | %-6s| %s\n",
+                studentRecord.Student_ID,
+                fullName,
+                studentRecord.Gender == 1 ? "Male" : "Female",
+                studentRecord.Date_Birth.day,
+                studentRecord.Date_Birth.month,
+                studentRecord.Date_Birth.year,
+                wilaya,
+                year,
+                speciality);
+      }
+
+      currentBlockNum = currentBlock.next;
+   }
+
+   printf("=========================================================================================================\n");
+   printf("Total Active Records: %d\n\n", recordCount);
+   Close(F);
+}
+
+void create_CP_STUDENT(Pr_index index_table[], int max_size, t_LnOVS *student_file)
+{
+   t_LnOVS *F;
+
+   Open(&F, "STUDENTS_CP.bin", 'N');
+   block buff, buff_student;
+
+   long current_block = 1;
+   long first_block = current_block; // Save first block
+   long previous_block = current_block;
+
+   // Initialize buffer
+   buff.Nb = 0;
+   buff.prev = -1;
+   buff.next = -1;
+   setHeader(F, "head", first_block);
+   setHeader(F, "tail", first_block);
+
+   int load_factor = (40 * 75) / 100; // 30 records per block (75% of 40)
+
+   for (long i = 0; i < max_size; i++)
+   {
+      // Read the student from the original file
+      ReadBlock(student_file, index_table[i].crdt.block_number, &buff_student);
+
+      if (buff.Nb < load_factor)
+      {
+         // Add student to current block
+         buff.tab[buff.Nb] = buff_student.tab[index_table[i].crdt.offset];
+         buff.Nb++;
+      }
+      else
+      {
+         // Current block is full, write it
+         buff.next = current_block + 1;
+         WriteBlock(F, current_block, &buff);
+
+         // Prepare next block
+         previous_block = current_block;
+         current_block = AllocBlock(F);
+
+         // Reset buffer for new block
+         buff.Nb = 0;
+         buff.prev = previous_block;
+         buff.next = -1;
+
+         // Add the current student to the new block
+         buff.tab[buff.Nb] = buff_student.tab[index_table[i].crdt.offset];
+         buff.Nb++;
+
+         // Update tail in header
+         setHeader(F, "tail", current_block);
+      }
+   }
+
+   // Write the last block
+   if (buff.Nb > 0)
+   {
+      buff.next = -1;
+      WriteBlock(F, current_block, &buff);
+      setHeader(F, "freepos", buff.Nb);
+      setHeader(F, "tail", current_block);
+   }
+   else
+   {
+      // No students were added, still update headers
+      setHeader(F, "freepos", 0);
+   }
+
+   Close(F);
+}
 #endif // MAINLIBRARY_H
