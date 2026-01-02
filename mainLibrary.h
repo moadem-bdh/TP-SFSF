@@ -966,6 +966,7 @@ int Delete_from_index1(Pr_index indextable[], int *Size, int block_number, int o
    
    return 1; // Success
 }
+
 int Delete_by_student_ID(Pr_index indextable[], int *Size, int StudentID, char *fname, int *C35)
 {
    *C35 = 0;
