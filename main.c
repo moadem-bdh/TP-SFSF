@@ -6226,6 +6226,7 @@ void display_speciality_ui(Pr_index index_table[], int size, char *fname, int *C
 
     const int num_specialities = 4;
 
+    
     // Let user select speciality
     CLEAR_SCREEN();
     gotoxy(center_x - 15, 3);
