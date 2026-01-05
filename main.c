@@ -145,7 +145,7 @@ void displayPrIndexTableWithData(Pr_index *indexTable, int tableSize,
         totalPages = 1;
 
     // Open the main data file
-    t_LnOVS *dataFile = NULL;
+    t_LnOF *dataFile = NULL;
     if (dataFilename != NULL && strlen(dataFilename) > 0)
     {
         Open(&dataFile, dataFilename, 'E');
@@ -650,7 +650,7 @@ void delete_student_workflow()
     }
 
     // Get student details for confirmation
-    t_LnOVS *F;
+    t_LnOF *F;
     Open(&F, fname, 'E');
 
     block dataBlock;
@@ -833,7 +833,7 @@ void modify_student_workflow()
     }
 
     // Get current student information
-    t_LnOVS *F;
+    t_LnOF *F;
     Open(&F, fname, 'E');
 
     block dataBlock;
@@ -1903,8 +1903,8 @@ void display_blood_type_ui(Pr_index index_table[], int size, int value, char *fn
 void display_speciality_ui(Pr_index index_table[], int size, char *fname, int *C42);
 void display_birth_interval_ui(Pr_index index_table[], int size, int Y1, int Y2, char *fname, int *C43);
 void display_year_study_ui(Pr_index index_table[], int size, int value, char *fname, int *C44);
-void display_all_contents_ui(t_LnOVS *F, char *Fname);
-void display_block_ui(t_LnOVS *F, int blkN, char *Fname);
+void display_all_contents_ui(t_LnOF *F, char *Fname);
+void display_block_ui(t_LnOF *F, int blkN, char *Fname);
 void display_header_ui(char *filename);
 void display_students_list_ui(const char *title, const char *subtitle, Pr_index index_table[], int size, int filter_value, char *fname, int totalStudents, int start_index, int *cost);
 void display_students_list_interval_ui(const char *title, Pr_index index_table[], int size, int Y1, int Y2, char *fname, int totalStudents, int *cost);
@@ -2017,12 +2017,12 @@ int select_from_list(const char *title, const char *items[], int count, int star
         // Draw simple ASCII box
         gotoxy(center_x - 25, start_y);
         set_color(COLOR_CYAN);
-        printf("==================================================");
+        printf("===================================================");
 
         gotoxy(center_x - 25, start_y + 1);
         printf("|");
         gotoxy(center_x + 21, start_y + 1);
-        printf("|");
+        printf("    |");
 
         // Title - centered
         int title_len = strlen(title);
@@ -2033,7 +2033,7 @@ int select_from_list(const char *title, const char *items[], int count, int star
 
         gotoxy(center_x - 25, start_y + 2);
         set_color(COLOR_CYAN);
-        printf("==================================================");
+        printf("===================================================");
 
         // Items
         for (int i = 0; i < count; i++)
@@ -2049,6 +2049,7 @@ int select_from_list(const char *title, const char *items[], int count, int star
                 printf("> ");
                 set_color(COLOR_WHITE);
                 printf("%-40s", items[i]);
+            
             }
             else
             {
@@ -2058,12 +2059,12 @@ int select_from_list(const char *title, const char *items[], int count, int star
 
             gotoxy(center_x + 21, start_y + 3 + i);
             set_color(COLOR_CYAN);
-            printf("|");
+            printf("    |");
         }
 
         gotoxy(center_x - 25, start_y + 3 + count);
         set_color(COLOR_CYAN);
-        printf("==================================================");
+        printf("===================================================");
 
         // Instructions
         gotoxy(center_x - 25, start_y + 5 + count);
@@ -2879,7 +2880,7 @@ int select_blood_type(int start_y, int center_x)
 void initial_loading(int N, int *C2)
 {
     *C2 = 0;
-    t_LnOVS *F;
+    t_LnOF *F;
     index_size = 0;
     index_size1 = 0;
     index_size2 = 0;
@@ -3358,7 +3359,7 @@ void show_confirmation_screen(char *Family_Name, char *First_Name, int Gender,
         // We need to search for the student in the index
         // Since we just inserted it, it should be there
         // We'll search by matching the name and other details
-        t_LnOVS *F;
+        t_LnOF *F;
         Open(&F, "STUDENTS_ESI.bin", 'E');
         block buffer;
 
@@ -3544,13 +3545,55 @@ void display_welcome_screen()
     int height = get_terminal_height();
     int center_x = width / 2;
 
-    // Calculate position - start at 30% from top (70% visible space above)
-    int start_y = 12; // Changed to 1/3 from top instead of center
-
-    // Top border
-    gotoxy(center_x - 30, start_y);
+    // Draw single inner frame with padding from screen edges
     set_color(COLOR_CYAN);
-    printf("==============================================================");
+
+    // Frame dimensions (with 2 character padding from screen edges)
+    int frame_left = 2;
+    int frame_right = width - 3;
+    int frame_top = 2;
+    int frame_bottom = height - 3;
+
+    // Frame top border
+    for (int x = frame_left; x <= frame_right; x++)
+    {
+        gotoxy(x, frame_top);
+        printf("=");
+    }
+
+    // Frame bottom border
+    for (int x = frame_left; x <= frame_right; x++)
+    {
+        gotoxy(x, frame_bottom);
+        printf("=");
+    }
+
+    // Frame side borders
+    for (int y = frame_top + 1; y < frame_bottom; y++)
+    {
+        gotoxy(frame_left, y);
+        printf("|");
+        gotoxy(frame_right, y);
+        printf("|");
+    }
+
+    // Frame corners
+    gotoxy(frame_left, frame_top);
+    printf("+");
+    gotoxy(frame_right, frame_top);
+    printf("+");
+    gotoxy(frame_left, frame_bottom);
+    printf("+");
+    gotoxy(frame_right, frame_bottom);
+    printf("+");
+
+    // Calculate position - start at 30% from top (70% visible space above)
+    // Center the content vertically within frame
+    int content_start_y = (frame_bottom - frame_top - 16) / 2 + frame_top;
+    if (content_start_y < frame_top + 2)
+        content_start_y = frame_top + 2;
+
+    int start_y = content_start_y;
 
     // School name - centered
     gotoxy(center_x - 18, start_y + 2);
@@ -3564,45 +3607,49 @@ void display_welcome_screen()
     // Project title
     gotoxy(center_x - 28, start_y + 5);
     set_color(COLOR_YELLOW);
-    printf("LOF DATA FILE MANAGEMENT SYSTEM - PRACTICAL WORK FSDS");
+    printf("LnOF DATA FILE MANAGEMENT SYSTEM - PRACTICAL WORK FSDS");
 
-    // Separator
+    // Separator (inside frame)
     gotoxy(center_x - 30, start_y + 6);
     set_color(COLOR_CYAN);
     printf("--------------------------------------------------------------");
 
     // Teacher information
     gotoxy(center_x - 15, start_y + 8);
-    set_color(COLOR_WHITE);
-    printf("Supervised by: ");
     set_color(COLOR_CYAN);
+    printf("Supervised by: ");
+    set_color(COLOR_WHITE);
     printf("Mr. KERMI Adel");
 
     gotoxy(center_x - 15, start_y + 9);
-    set_color(COLOR_WHITE);
-    printf("Academic Year: ");
     set_color(COLOR_CYAN);
+    printf("Academic Year: ");
+    set_color(COLOR_WHITE);
     printf("2024-2025");
 
     // Students information
     gotoxy(center_x - 15, start_y + 11);
-    set_color(COLOR_WHITE);
+    set_color(COLOR_CYAN);
     printf("Done by:");
 
     gotoxy(center_x - 10, start_y + 12);
-    set_color(COLOR_CYAN);
+    set_color(COLOR_WHITE);
     printf("SIFI Mohamed");
 
     gotoxy(center_x - 10, start_y + 13);
     printf("BOUDEHANE Mohamed Adem");
 
-    // Bottom border
+    // Bottom border inside frame
     gotoxy(center_x - 30, start_y + 15);
     set_color(COLOR_CYAN);
     printf("==============================================================");
 
-    // Continue prompt
-    gotoxy(center_x - 20, start_y + 17);
+    // Continue prompt (position inside frame near bottom)
+    int prompt_y = frame_bottom - 3;
+    if (prompt_y < start_y + 17)
+        prompt_y = start_y + 17;
+
+    gotoxy(center_x - 20, prompt_y);
     set_color(COLOR_YELLOW);
     printf("Press ");
     set_color(COLOR_GREEN);
@@ -3813,7 +3860,7 @@ void display_main_menu()
                 return;
             case 2:
                 CLEAR_SCREEN();
-                t_LnOVS *F;
+                t_LnOF *F;
                 display_all_contents_ui(F, "STUDENTS_ESI.bin");
                 current_main_menu_selection = 0;
                 return;
@@ -5706,6 +5753,40 @@ void display_blood_type_ui(Pr_index index_table[], int size, int value, char *fn
         return;
     }
 
+    // Get blood type name for display
+    char blood_type_name[20];
+    strcpy(blood_type_name, "Unknown");
+    if (value >= 1 && value <= 8)
+    {
+        strcpy(blood_type_name, Blood_Types[value - 1].name);
+    }
+
+    // ========== COUNT AND STORE POSITIONS ==========
+    t_LnOF *tempF;
+    Open(&tempF, fname, 'E');
+
+    // Store positions of students with this blood type
+    typedef struct
+    {
+        long blockNum;
+        int offset;
+    } RecordPosition;
+
+    RecordPosition *recordPositions = malloc(totalStudents * sizeof(RecordPosition));
+    int recordIndex = 0;
+
+    for (int i = start; i < size && recordIndex < totalStudents; i++)
+    {
+        if (index_table[i].Identifier == value)
+        {
+            recordPositions[recordIndex].blockNum = index_table[i].crdt.block_number;
+            recordPositions[recordIndex].offset = index_table[i].crdt.offset;
+            recordIndex++;
+        }
+    }
+
+    Close(tempF);
+
     // ========== MAIN DISPLAY LOOP ==========
     int width = get_terminal_width();
     int height = get_terminal_height();
@@ -5719,14 +5800,6 @@ void display_blood_type_ui(Pr_index index_table[], int size, int value, char *fn
         totalPages = 1;
 
     int continueDisplay = 1;
-
-    // Get blood type name for display
-    char blood_type_name[20];
-    strcpy(blood_type_name, "Unknown");
-    if (value >= 1 && value <= 8)
-    {
-        strcpy(blood_type_name, Blood_Types[value - 1].name);
-    }
 
     while (continueDisplay)
     {
@@ -5743,12 +5816,12 @@ void display_blood_type_ui(Pr_index index_table[], int size, int value, char *fn
         set_color(COLOR_MAGENTA);
         printf("STUDENTS BY BLOOD TYPE");
 
-        gotoxy(center_x - 10, 3);
+        gotoxy(center_x - 26, 3);
         set_color(COLOR_YELLOW);
-        printf("Blood Type: %s | Total Students: %d", blood_type_name, totalStudents);
+        printf("Cost: %d | Blood Type: %s | Total Students: %d",totalStudents ,blood_type_name, totalStudents);
 
         // ========== OPEN FILE ==========
-        t_LnOVS *F;
+        t_LnOF *F;
         Open(&F, fname, 'E');
 
         // Calculate current page indices
@@ -5788,87 +5861,87 @@ void display_blood_type_ui(Pr_index index_table[], int size, int value, char *fn
             printf("+----+------------+---------------------+------------+------------+------------+\n");
             y++;
 
-            // Display records for current page
+            // Display records for current page using stored positions
             int displayed = 0;
             rec selectedStudent;
             bool foundSelected = false;
             block buffer;
 
-            // Find and display students for current page
-            int studentCount = 0;
-            for (int i = start; i < size && displayed < recordsPerPage; i++)
+            for (int i = startIdx; i < endIdx && i < totalStudents; i++)
             {
-                if (index_table[i].Identifier == value)
+                // Get record position from stored array
+                RecordPosition pos = recordPositions[i];
+
+                // Read the block and get the record
+                ReadBlock(F, pos.blockNum, &buffer);
+                if (C41 && i == startIdx) // Count cost only once per page
+                    (*C41)++;
+
+                rec student = buffer.tab[pos.offset];
+
+                gotoxy(tableStartX, y);
+
+                // Highlight cursor line
+                if (i == startIdx + cursorIndex)
                 {
-                    if (studentCount >= startIdx && studentCount < endIdx)
-                    {
-                        // Get record position
-                        Pr_cor coords = index_table[i].crdt;
-
-                        // Read the block and get the record
-                        ReadBlock(F, coords.block_number, &buffer);
-                        if (C41 && studentCount == startIdx) // Count cost only once per page
-                            (*C41)++;
-
-                        rec student = buffer.tab[coords.offset];
-
-                        gotoxy(tableStartX, y);
-
-                        // Highlight cursor line
-                        if (cursorIndex == displayed)
-                        {
-                            set_color(COLOR_GREEN);
-                            printf("|>%-3d", studentCount + 1);
-                            set_color(COLOR_WHITE);
-                            // Store the selected student for details display
-                            selectedStudent = student;
-                            foundSelected = true;
-                        }
-                        else
-                        {
-                            printf("| %-3d", studentCount + 1);
-                        }
-
-                        // Student ID
-                        printf("| %-10d ", student.Student_ID);
-
-                        // Name (truncated)
-                        char name[21];
-                        snprintf(name, sizeof(name), "%s %c",
-                                 student.Family_Name, student.First_Name[0]);
-                        if (strlen(name) > 20)
-                        {
-                            strncpy(name, name, 17);
-                            strcpy(name + 17, "...");
-                        }
-                        printf("| %-19s ", name);
-
-                        // Birth date
-                        char date[11];
-                        snprintf(date, sizeof(date), "%02d/%02d/%04d",
-                                 student.Date_Birth.day,
-                                 student.Date_Birth.month,
-                                 student.Date_Birth.year);
-                        printf("| %-10s ", date);
-
-                        // Wilaya (truncated)
-                        char wil[11];
-                        strncpy(wil, student.Wilaya_Birth, 10);
-                        wil[10] = '\0';
-                        if (strlen(student.Wilaya_Birth) > 10)
-                        {
-                            strcpy(wil + 7, "...");
-                        }
-                        printf("| %-10s ", wil);
-
-                        // Blood type
-                        printf("| %-10s |\n", student.Blood_Type);
-
-                        y++;
-                        displayed++;
-                    }
-                    studentCount++;
+                    set_color(COLOR_GREEN);
+                    printf("|>%-3d", i + 1);
+                    set_color(COLOR_WHITE);
+                    // Store the selected student for details display
+                    selectedStudent = student;
+                    foundSelected = true;
                 }
+                else
+                {
+                    printf("| %-3d", i + 1);
+                }
+
+                // Student ID
+                printf("| %-10d ", student.Student_ID);
+
+                // Name (truncated) - Family Name (10 chars) + First initial
+                char family_display[11];
+                char name[21];
+
+                // Get first 10 chars of family name
+                strncpy(family_display, student.Family_Name, 10);
+                family_display[10] = '\0';
+                if (strlen(student.Family_Name) > 10)
+                {
+                    family_display[9] = '.';
+                    family_display[10] = '\0';
+                }
+
+                // Get first char of first name
+                char first_initial = (strlen(student.First_Name) > 0) ? student.First_Name[0] : '-';
+
+                // Create combined name display
+                snprintf(name, sizeof(name), "%s %c.", family_display, first_initial);
+                printf("| %-19s ", name);
+
+                // Birth date
+                char date[11];
+                snprintf(date, sizeof(date), "%02d/%02d/%04d",
+                         student.Date_Birth.day,
+                         student.Date_Birth.month,
+                         student.Date_Birth.year);
+                printf("| %-10s ", date);
+
+                // Wilaya (truncated)
+                char wil[11];
+                strncpy(wil, student.Wilaya_Birth, 10);
+                wil[10] = '\0';
+                if (strlen(student.Wilaya_Birth) > 10)
+                {
+                    strcpy(wil + 7, "...");
+                }
+                printf("| %-10s ", wil);
+
+                // Blood type
+                printf("| %-10s |\n", student.Blood_Type);
+
+                y++;
+                displayed++;
             }
 
             // Table footer
@@ -5892,7 +5965,7 @@ void display_blood_type_ui(Pr_index index_table[], int size, int value, char *fn
                 // Top border - Cyan color
                 gotoxy(detailsStartX, y);
                 set_color(COLOR_CYAN);
-                printf("+--------------------------------------------------+\n");
+                printf("+-------------------------------------------------+\n");
                 y++;
 
                 // Title - Yellow color
@@ -5903,12 +5976,13 @@ void display_blood_type_ui(Pr_index index_table[], int size, int value, char *fn
                 printf("STUDENT RECORD");
                 gotoxy(detailsStartX + detailsWidth - 1, y);
                 set_color(COLOR_CYAN);
-                printf("|\n");
+                printf(" |\n");
                 y++;
 
                 // Separator - Cyan color
                 gotoxy(detailsStartX, y);
-                printf("+--------------------------------------------------+\n");
+                set_color(COLOR_CYAN);
+                printf("+-------------------------------------------------+\n");
                 y++;
 
                 // Student ID - Yellow label, White value
@@ -5919,6 +5993,7 @@ void display_blood_type_ui(Pr_index index_table[], int size, int value, char *fn
                 set_color(COLOR_WHITE);
                 printf("%-35d", selectedStudent.Student_ID);
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
@@ -5928,8 +6003,18 @@ void display_blood_type_ui(Pr_index index_table[], int size, int value, char *fn
                 set_color(COLOR_YELLOW);
                 printf("Family Name: ");
                 set_color(COLOR_WHITE);
-                printf("%-33s", selectedStudent.Family_Name);
+                // Display first 10 characters of family name
+                char family_display[11];
+                strncpy(family_display, selectedStudent.Family_Name, 10);
+                family_display[10] = '\0';
+                if (strlen(selectedStudent.Family_Name) > 10)
+                {
+                    family_display[9] = '.';
+                    family_display[10] = '\0';
+                }
+                printf("%-33s", family_display);
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
@@ -5939,8 +6024,21 @@ void display_blood_type_ui(Pr_index index_table[], int size, int value, char *fn
                 set_color(COLOR_YELLOW);
                 printf("First Name: ");
                 set_color(COLOR_WHITE);
-                printf("%-34s", selectedStudent.First_Name);
+                // Display first character of first name
+                char first_name_display[3];
+                if (strlen(selectedStudent.First_Name) > 0)
+                {
+                    first_name_display[0] = selectedStudent.First_Name[0];
+                    first_name_display[1] = '.';
+                    first_name_display[2] = '\0';
+                }
+                else
+                {
+                    strcpy(first_name_display, "-");
+                }
+                printf("%-34s", first_name_display);
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
@@ -5957,6 +6055,7 @@ void display_blood_type_ui(Pr_index index_table[], int size, int value, char *fn
                 set_color(COLOR_WHITE);
                 printf("%-34s", date_str);
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
@@ -5968,6 +6067,7 @@ void display_blood_type_ui(Pr_index index_table[], int size, int value, char *fn
                 set_color(COLOR_WHITE);
                 printf("%-38s", selectedStudent.Wilaya_Birth);
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
@@ -5980,6 +6080,7 @@ void display_blood_type_ui(Pr_index index_table[], int size, int value, char *fn
                 printf("%-37s",
                        selectedStudent.Gender == 1 ? "Male" : "Female");
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
@@ -5991,6 +6092,7 @@ void display_blood_type_ui(Pr_index index_table[], int size, int value, char *fn
                 set_color(COLOR_WHITE);
                 printf("%-34s", selectedStudent.Blood_Type);
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
@@ -6002,6 +6104,7 @@ void display_blood_type_ui(Pr_index index_table[], int size, int value, char *fn
                 set_color(COLOR_WHITE);
                 printf("%-31s", selectedStudent.Year_Study);
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
@@ -6011,8 +6114,45 @@ void display_blood_type_ui(Pr_index index_table[], int size, int value, char *fn
                 set_color(COLOR_YELLOW);
                 printf("Speciality: ");
                 set_color(COLOR_WHITE);
-                printf("%-34s", selectedStudent.Speciality);
+                
+                // CHECK IF STUDENT IS 2CS OR 3CS
+                if (strcmp(selectedStudent.Year_Study, "2CS") == 0 || 
+                    strcmp(selectedStudent.Year_Study, "3CS") == 0)
+                {
+                    // For 2CS/3CS: Extract text between parentheses
+                    char *speciality_text = selectedStudent.Speciality;
+                    char *start_paren = strchr(speciality_text, '(');
+                    char *end_paren = strchr(speciality_text, ')');
+                    
+                    if (start_paren != NULL && end_paren != NULL && end_paren > start_paren)
+                    {
+                        // Extract text between parentheses
+                        char extracted_speciality[50];
+                        int length = end_paren - start_paren - 1;
+                        if (length > 0 && length < sizeof(extracted_speciality))
+                        {
+                            strncpy(extracted_speciality, start_paren + 1, length);
+                            extracted_speciality[length] = '\0';
+                            printf("%-34s", extracted_speciality);
+                        }
+                        else
+                        {
+                            printf("%-34s", selectedStudent.Speciality);
+                        }
+                    }
+                    else
+                    {
+                        printf("%-34s", selectedStudent.Speciality);
+                    }
+                }
+                else
+                {
+                    // For other years: Show full speciality
+                    printf("%-34s", selectedStudent.Speciality);
+                }
+                
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
@@ -6024,12 +6164,13 @@ void display_blood_type_ui(Pr_index index_table[], int size, int value, char *fn
                 set_color(COLOR_WHITE);
                 printf("%-29s", selectedStudent.Resident_UC ? "Yes" : "No");
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
                 // Bottom border - Cyan color
                 gotoxy(detailsStartX, y);
-                printf("+--------------------------------------------------+\n");
+                printf("+-------------------------------------------------+\n");
                 y += 2;
             }
         }
@@ -6202,6 +6343,13 @@ void display_blood_type_ui(Pr_index index_table[], int size, int value, char *fn
         hide_cursor();
     }
 
+    // ========== CLEANUP ==========
+    // Free allocated memory
+    if (recordPositions != NULL)
+    {
+        free(recordPositions);
+    }
+
     hide_cursor();
 }
 
@@ -6226,7 +6374,6 @@ void display_speciality_ui(Pr_index index_table[], int size, char *fname, int *C
 
     const int num_specialities = 4;
 
-    
     // Let user select speciality
     CLEAR_SCREEN();
     gotoxy(center_x - 15, 3);
@@ -6281,6 +6428,32 @@ void display_speciality_ui(Pr_index index_table[], int size, char *fname, int *C
         return;
     }
 
+    // ========== COUNT AND STORE POSITIONS ==========
+    t_LnOF *tempF;
+    Open(&tempF, fname, 'E');
+
+    // Store positions of students with this speciality
+    typedef struct
+    {
+        long blockNum;
+        int offset;
+    } RecordPosition;
+
+    RecordPosition *recordPositions = malloc(totalStudents * sizeof(RecordPosition));
+    int recordIndex = 0;
+
+    for (int i = start; i < size && recordIndex < totalStudents; i++)
+    {
+        if (index_table[i].Identifier == speciality_value)
+        {
+            recordPositions[recordIndex].blockNum = index_table[i].crdt.block_number;
+            recordPositions[recordIndex].offset = index_table[i].crdt.offset;
+            recordIndex++;
+        }
+    }
+
+    Close(tempF);
+
     // ========== MAIN DISPLAY LOOP ==========
     int currentPage = 1;
     int cursorIndex = 0;
@@ -6306,12 +6479,12 @@ void display_speciality_ui(Pr_index index_table[], int size, char *fname, int *C
         set_color(COLOR_MAGENTA);
         printf("STUDENTS BY SPECIALITY");
 
-        gotoxy(center_x - 10, 3);
+        gotoxy(center_x - 36, 3);
         set_color(COLOR_YELLOW);
-        printf("Speciality: %s | Total Students: %d", speciality_name, totalStudents);
+        printf("Cost: %d | Speciality: %s | Total Students: %d",totalStudents, speciality_name, totalStudents);
 
         // ========== OPEN FILE ==========
-        t_LnOVS *F;
+        t_LnOF *F;
         Open(&F, fname, 'E');
 
         // Calculate current page indices
@@ -6351,87 +6524,87 @@ void display_speciality_ui(Pr_index index_table[], int size, char *fname, int *C
             printf("+----+------------+---------------------+------------+------------+------------+\n");
             y++;
 
-            // Display records for current page
+            // Display records for current page using stored positions
             int displayed = 0;
             rec selectedStudent;
             bool foundSelected = false;
             block buffer;
 
-            // Find and display students for current page
-            int studentCount = 0;
-            for (int i = start; i < size && displayed < recordsPerPage; i++)
+            for (int i = startIdx; i < endIdx && i < totalStudents; i++)
             {
-                if (index_table[i].Identifier == speciality_value)
+                // Get record position from stored array
+                RecordPosition pos = recordPositions[i];
+
+                // Read the block and get the record
+                ReadBlock(F, pos.blockNum, &buffer);
+                if (C42 && i == startIdx) // Count cost only once per page
+                    (*C42)++;
+
+                rec student = buffer.tab[pos.offset];
+
+                gotoxy(tableStartX, y);
+
+                // Highlight cursor line
+                if (i == startIdx + cursorIndex)
                 {
-                    if (studentCount >= startIdx && studentCount < endIdx)
-                    {
-                        // Get record position
-                        Pr_cor coords = index_table[i].crdt;
-
-                        // Read the block and get the record
-                        ReadBlock(F, coords.block_number, &buffer);
-                        if (C42 && studentCount == startIdx) // Count cost only once per page
-                            (*C42)++;
-
-                        rec student = buffer.tab[coords.offset];
-
-                        gotoxy(tableStartX, y);
-
-                        // Highlight cursor line
-                        if (cursorIndex == displayed)
-                        {
-                            set_color(COLOR_GREEN);
-                            printf("|>%-3d", studentCount + 1);
-                            set_color(COLOR_WHITE);
-                            // Store the selected student for details display
-                            selectedStudent = student;
-                            foundSelected = true;
-                        }
-                        else
-                        {
-                            printf("| %-3d", studentCount + 1);
-                        }
-
-                        // Student ID
-                        printf("| %-10d ", student.Student_ID);
-
-                        // Name (truncated)
-                        char name[21];
-                        snprintf(name, sizeof(name), "%s %c",
-                                 student.Family_Name, student.First_Name[0]);
-                        if (strlen(name) > 20)
-                        {
-                            strncpy(name, name, 17);
-                            strcpy(name + 17, "...");
-                        }
-                        printf("| %-19s ", name);
-
-                        // Birth date
-                        char date[11];
-                        snprintf(date, sizeof(date), "%02d/%02d/%04d",
-                                 student.Date_Birth.day,
-                                 student.Date_Birth.month,
-                                 student.Date_Birth.year);
-                        printf("| %-10s ", date);
-
-                        // Wilaya (truncated)
-                        char wil[11];
-                        strncpy(wil, student.Wilaya_Birth, 10);
-                        wil[10] = '\0';
-                        if (strlen(student.Wilaya_Birth) > 10)
-                        {
-                            strcpy(wil + 7, "...");
-                        }
-                        printf("| %-10s ", wil);
-
-                        // Blood type
-                        printf("| %-10s |\n", student.Blood_Type);
-
-                        y++;
-                        displayed++;
-                    }
-                    studentCount++;
+                    set_color(COLOR_GREEN);
+                    printf("|>%-3d", i + 1);
+                    set_color(COLOR_WHITE);
+                    // Store the selected student for details display
+                    selectedStudent = student;
+                    foundSelected = true;
                 }
+                else
+                {
+                    printf("| %-3d", i + 1);
+                }
+
+                // Student ID
+                printf("| %-10d ", student.Student_ID);
+
+                // Name (truncated) - Family Name (10 chars) + First initial
+                char family_display[11];
+                char name[21];
+
+                // Get first 10 chars of family name
+                strncpy(family_display, student.Family_Name, 10);
+                family_display[10] = '\0';
+                if (strlen(student.Family_Name) > 10)
+                {
+                    family_display[9] = '.';
+                    family_display[10] = '\0';
+                }
+
+                // Get first char of first name
+                char first_initial = (strlen(student.First_Name) > 0) ? student.First_Name[0] : '-';
+
+                // Create combined name display
+                snprintf(name, sizeof(name), "%s %c.", family_display, first_initial);
+                printf("| %-19s ", name);
+
+                // Birth date
+                char date[11];
+                snprintf(date, sizeof(date), "%02d/%02d/%04d",
+                         student.Date_Birth.day,
+                         student.Date_Birth.month,
+                         student.Date_Birth.year);
+                printf("| %-10s ", date);
+
+                // Wilaya (truncated)
+                char wil[11];
+                strncpy(wil, student.Wilaya_Birth, 10);
+                wil[10] = '\0';
+                if (strlen(student.Wilaya_Birth) > 10)
+                {
+                    strcpy(wil + 7, "...");
+                }
+                printf("| %-10s ", wil);
+
+                // Blood type
+                printf("| %-10s |\n", student.Blood_Type);
+
+                y++;
+                displayed++;
             }
 
             // Table footer
@@ -6455,7 +6628,7 @@ void display_speciality_ui(Pr_index index_table[], int size, char *fname, int *C
                 // Top border - Cyan color
                 gotoxy(detailsStartX, y);
                 set_color(COLOR_CYAN);
-                printf("+--------------------------------------------------+\n");
+                printf("+-------------------------------------------------+\n");
                 y++;
 
                 // Title - Yellow color
@@ -6466,12 +6639,13 @@ void display_speciality_ui(Pr_index index_table[], int size, char *fname, int *C
                 printf("STUDENT RECORD");
                 gotoxy(detailsStartX + detailsWidth - 1, y);
                 set_color(COLOR_CYAN);
-                printf("|\n");
+                printf(" |\n");
                 y++;
 
                 // Separator - Cyan color
                 gotoxy(detailsStartX, y);
-                printf("+--------------------------------------------------+\n");
+                set_color(COLOR_CYAN);
+                printf("+-------------------------------------------------+\n");
                 y++;
 
                 // Student ID - Yellow label, White value
@@ -6482,6 +6656,7 @@ void display_speciality_ui(Pr_index index_table[], int size, char *fname, int *C
                 set_color(COLOR_WHITE);
                 printf("%-35d", selectedStudent.Student_ID);
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
@@ -6491,8 +6666,18 @@ void display_speciality_ui(Pr_index index_table[], int size, char *fname, int *C
                 set_color(COLOR_YELLOW);
                 printf("Family Name: ");
                 set_color(COLOR_WHITE);
-                printf("%-33s", selectedStudent.Family_Name);
+                // Display first 10 characters of family name
+                char family_display[11];
+                strncpy(family_display, selectedStudent.Family_Name, 10);
+                family_display[10] = '\0';
+                if (strlen(selectedStudent.Family_Name) > 10)
+                {
+                    family_display[9] = '.';
+                    family_display[10] = '\0';
+                }
+                printf("%-33s", family_display);
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
@@ -6502,8 +6687,21 @@ void display_speciality_ui(Pr_index index_table[], int size, char *fname, int *C
                 set_color(COLOR_YELLOW);
                 printf("First Name: ");
                 set_color(COLOR_WHITE);
-                printf("%-34s", selectedStudent.First_Name);
+                // Display first character of first name
+                char first_name_display[3];
+                if (strlen(selectedStudent.First_Name) > 0)
+                {
+                    first_name_display[0] = selectedStudent.First_Name[0];
+                    first_name_display[1] = '.';
+                    first_name_display[2] = '\0';
+                }
+                else
+                {
+                    strcpy(first_name_display, "-");
+                }
+                printf("%-34s", first_name_display);
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
@@ -6520,6 +6718,7 @@ void display_speciality_ui(Pr_index index_table[], int size, char *fname, int *C
                 set_color(COLOR_WHITE);
                 printf("%-34s", date_str);
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
@@ -6531,6 +6730,7 @@ void display_speciality_ui(Pr_index index_table[], int size, char *fname, int *C
                 set_color(COLOR_WHITE);
                 printf("%-38s", selectedStudent.Wilaya_Birth);
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
@@ -6543,6 +6743,7 @@ void display_speciality_ui(Pr_index index_table[], int size, char *fname, int *C
                 printf("%-37s",
                        selectedStudent.Gender == 1 ? "Male" : "Female");
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
@@ -6554,6 +6755,7 @@ void display_speciality_ui(Pr_index index_table[], int size, char *fname, int *C
                 set_color(COLOR_WHITE);
                 printf("%-34s", selectedStudent.Blood_Type);
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
@@ -6565,6 +6767,7 @@ void display_speciality_ui(Pr_index index_table[], int size, char *fname, int *C
                 set_color(COLOR_WHITE);
                 printf("%-31s", selectedStudent.Year_Study);
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
@@ -6574,8 +6777,45 @@ void display_speciality_ui(Pr_index index_table[], int size, char *fname, int *C
                 set_color(COLOR_YELLOW);
                 printf("Speciality: ");
                 set_color(COLOR_WHITE);
-                printf("%-34s", selectedStudent.Speciality);
+                
+                // CHECK IF STUDENT IS 2CS OR 3CS
+                if (strcmp(selectedStudent.Year_Study, "2CS") == 0 || 
+                    strcmp(selectedStudent.Year_Study, "3CS") == 0)
+                {
+                    // For 2CS/3CS: Extract text between parentheses
+                    char *speciality_text = selectedStudent.Speciality;
+                    char *start_paren = strchr(speciality_text, '(');
+                    char *end_paren = strchr(speciality_text, ')');
+                    
+                    if (start_paren != NULL && end_paren != NULL && end_paren > start_paren)
+                    {
+                        // Extract text between parentheses
+                        char extracted_speciality[50];
+                        int length = end_paren - start_paren - 1;
+                        if (length > 0 && length < sizeof(extracted_speciality))
+                        {
+                            strncpy(extracted_speciality, start_paren + 1, length);
+                            extracted_speciality[length] = '\0';
+                            printf("%-34s", extracted_speciality);
+                        }
+                        else
+                        {
+                            printf("%-34s", selectedStudent.Speciality);
+                        }
+                    }
+                    else
+                    {
+                        printf("%-34s", selectedStudent.Speciality);
+                    }
+                }
+                else
+                {
+                    // For other years: Show full speciality
+                    printf("%-34s", selectedStudent.Speciality);
+                }
+                
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
@@ -6587,12 +6827,13 @@ void display_speciality_ui(Pr_index index_table[], int size, char *fname, int *C
                 set_color(COLOR_WHITE);
                 printf("%-29s", selectedStudent.Resident_UC ? "Yes" : "No");
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
                 // Bottom border - Cyan color
                 gotoxy(detailsStartX, y);
-                printf("+--------------------------------------------------+\n");
+                printf("+-------------------------------------------------+\n");
                 y += 2;
             }
         }
@@ -6763,6 +7004,13 @@ void display_speciality_ui(Pr_index index_table[], int size, char *fname, int *C
         }
 
         hide_cursor();
+    }
+
+    // ========== CLEANUP ==========
+    // Free allocated memory
+    if (recordPositions != NULL)
+    {
+        free(recordPositions);
     }
 
     hide_cursor();
@@ -6824,6 +7072,32 @@ void display_year_study_ui(Pr_index index_table[], int size, int value, char *fn
         strcpy(year_name, specs[value - 1].years);
     }
 
+    // ========== COUNT AND STORE POSITIONS ==========
+    t_LnOF *tempF;
+    Open(&tempF, fname, 'E');
+
+    // Store positions of students with this year of study
+    typedef struct
+    {
+        long blockNum;
+        int offset;
+    } RecordPosition;
+
+    RecordPosition *recordPositions = malloc(totalStudents * sizeof(RecordPosition));
+    int recordIndex = 0;
+
+    for (int i = start; i < size && recordIndex < totalStudents; i++)
+    {
+        if (index_table[i].Identifier == value)
+        {
+            recordPositions[recordIndex].blockNum = index_table[i].crdt.block_number;
+            recordPositions[recordIndex].offset = index_table[i].crdt.offset;
+            recordIndex++;
+        }
+    }
+
+    Close(tempF);
+
     // ========== MAIN DISPLAY LOOP ==========
     int width = get_terminal_width();
     int height = get_terminal_height();
@@ -6853,12 +7127,12 @@ void display_year_study_ui(Pr_index index_table[], int size, int value, char *fn
         set_color(COLOR_MAGENTA);
         printf("STUDENTS BY YEAR OF STUDY");
 
-        gotoxy(center_x - 10, 3);
+        gotoxy(center_x - 26, 3);
         set_color(COLOR_YELLOW);
-        printf("Year: %s | Total Students: %d", year_name, totalStudents);
+        printf("Cost: %d | Year: %s | Total Students: %d",totalStudents, year_name, totalStudents);
 
         // ========== OPEN FILE ==========
-        t_LnOVS *F;
+        t_LnOF *F;
         Open(&F, fname, 'E');
 
         // Calculate current page indices
@@ -6898,87 +7172,87 @@ void display_year_study_ui(Pr_index index_table[], int size, int value, char *fn
             printf("+----+------------+---------------------+------------+------------+------------+\n");
             y++;
 
-            // Display records for current page
+            // Display records for current page using stored positions
             int displayed = 0;
             rec selectedStudent;
             bool foundSelected = false;
             block buffer;
 
-            // Find and display students for current page
-            int studentCount = 0;
-            for (int i = start; i < size && displayed < recordsPerPage; i++)
+            for (int i = startIdx; i < endIdx && i < totalStudents; i++)
             {
-                if (index_table[i].Identifier == value)
+                // Get record position from stored array
+                RecordPosition pos = recordPositions[i];
+
+                // Read the block and get the record
+                ReadBlock(F, pos.blockNum, &buffer);
+                if (C44 && i == startIdx) // Count cost only once per page
+                    (*C44)++;
+
+                rec student = buffer.tab[pos.offset];
+
+                gotoxy(tableStartX, y);
+
+                // Highlight cursor line
+                if (i == startIdx + cursorIndex)
                 {
-                    if (studentCount >= startIdx && studentCount < endIdx)
-                    {
-                        // Get record position
-                        Pr_cor coords = index_table[i].crdt;
-
-                        // Read the block and get the record
-                        ReadBlock(F, coords.block_number, &buffer);
-                        if (C44 && studentCount == startIdx) // Count cost only once per page
-                            (*C44)++;
-
-                        rec student = buffer.tab[coords.offset];
-
-                        gotoxy(tableStartX, y);
-
-                        // Highlight cursor line
-                        if (cursorIndex == displayed)
-                        {
-                            set_color(COLOR_GREEN);
-                            printf("|>%-3d", studentCount + 1);
-                            set_color(COLOR_WHITE);
-                            // Store the selected student for details display
-                            selectedStudent = student;
-                            foundSelected = true;
-                        }
-                        else
-                        {
-                            printf("| %-3d", studentCount + 1);
-                        }
-
-                        // Student ID
-                        printf("| %-10d ", student.Student_ID);
-
-                        // Name (truncated)
-                        char name[21];
-                        snprintf(name, sizeof(name), "%s %c",
-                                 student.Family_Name, student.First_Name[0]);
-                        if (strlen(name) > 20)
-                        {
-                            strncpy(name, name, 17);
-                            strcpy(name + 17, "...");
-                        }
-                        printf("| %-19s ", name);
-
-                        // Birth date
-                        char date[11];
-                        snprintf(date, sizeof(date), "%02d/%02d/%04d",
-                                 student.Date_Birth.day,
-                                 student.Date_Birth.month,
-                                 student.Date_Birth.year);
-                        printf("| %-10s ", date);
-
-                        // Wilaya (truncated)
-                        char wil[11];
-                        strncpy(wil, student.Wilaya_Birth, 10);
-                        wil[10] = '\0';
-                        if (strlen(student.Wilaya_Birth) > 10)
-                        {
-                            strcpy(wil + 7, "...");
-                        }
-                        printf("| %-10s ", wil);
-
-                        // Blood type
-                        printf("| %-10s |\n", student.Blood_Type);
-
-                        y++;
-                        displayed++;
-                    }
-                    studentCount++;
+                    set_color(COLOR_GREEN);
+                    printf("|>%-3d", i + 1);
+                    set_color(COLOR_WHITE);
+                    // Store the selected student for details display
+                    selectedStudent = student;
+                    foundSelected = true;
                 }
+                else
+                {
+                    printf("| %-3d", i + 1);
+                }
+
+                // Student ID
+                printf("| %-10d ", student.Student_ID);
+
+                // Name (truncated) - Family Name (10 chars) + First initial
+                char family_display[11];
+                char name[21];
+
+                // Get first 10 chars of family name
+                strncpy(family_display, student.Family_Name, 10);
+                family_display[10] = '\0';
+                if (strlen(student.Family_Name) > 10)
+                {
+                    family_display[9] = '.';
+                    family_display[10] = '\0';
+                }
+
+                // Get first char of first name
+                char first_initial = (strlen(student.First_Name) > 0) ? student.First_Name[0] : '-';
+
+                // Create combined name display
+                snprintf(name, sizeof(name), "%s %c.", family_display, first_initial);
+                printf("| %-19s ", name);
+
+                // Birth date
+                char date[11];
+                snprintf(date, sizeof(date), "%02d/%02d/%04d",
+                         student.Date_Birth.day,
+                         student.Date_Birth.month,
+                         student.Date_Birth.year);
+                printf("| %-10s ", date);
+
+                // Wilaya (truncated)
+                char wil[11];
+                strncpy(wil, student.Wilaya_Birth, 10);
+                wil[10] = '\0';
+                if (strlen(student.Wilaya_Birth) > 10)
+                {
+                    strcpy(wil + 7, "...");
+                }
+                printf("| %-10s ", wil);
+
+                // Blood type
+                printf("| %-10s |\n", student.Blood_Type);
+
+                y++;
+                displayed++;
             }
 
             // Table footer
@@ -7002,7 +7276,7 @@ void display_year_study_ui(Pr_index index_table[], int size, int value, char *fn
                 // Top border - Cyan color
                 gotoxy(detailsStartX, y);
                 set_color(COLOR_CYAN);
-                printf("+--------------------------------------------------+\n");
+                printf("+-------------------------------------------------+\n");
                 y++;
 
                 // Title - Yellow color
@@ -7013,12 +7287,13 @@ void display_year_study_ui(Pr_index index_table[], int size, int value, char *fn
                 printf("STUDENT RECORD");
                 gotoxy(detailsStartX + detailsWidth - 1, y);
                 set_color(COLOR_CYAN);
-                printf("|\n");
+                printf(" |\n");
                 y++;
 
                 // Separator - Cyan color
                 gotoxy(detailsStartX, y);
-                printf("+--------------------------------------------------+\n");
+                set_color(COLOR_CYAN);
+                printf("+-------------------------------------------------+\n");
                 y++;
 
                 // Student ID - Yellow label, White value
@@ -7029,6 +7304,7 @@ void display_year_study_ui(Pr_index index_table[], int size, int value, char *fn
                 set_color(COLOR_WHITE);
                 printf("%-35d", selectedStudent.Student_ID);
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
@@ -7038,8 +7314,18 @@ void display_year_study_ui(Pr_index index_table[], int size, int value, char *fn
                 set_color(COLOR_YELLOW);
                 printf("Family Name: ");
                 set_color(COLOR_WHITE);
-                printf("%-33s", selectedStudent.Family_Name);
+                // Display first 10 characters of family name
+                char family_display[11];
+                strncpy(family_display, selectedStudent.Family_Name, 10);
+                family_display[10] = '\0';
+                if (strlen(selectedStudent.Family_Name) > 10)
+                {
+                    family_display[9] = '.';
+                    family_display[10] = '\0';
+                }
+                printf("%-33s", family_display);
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
@@ -7049,8 +7335,21 @@ void display_year_study_ui(Pr_index index_table[], int size, int value, char *fn
                 set_color(COLOR_YELLOW);
                 printf("First Name: ");
                 set_color(COLOR_WHITE);
-                printf("%-34s", selectedStudent.First_Name);
+                // Display first character of first name
+                char first_name_display[3];
+                if (strlen(selectedStudent.First_Name) > 0)
+                {
+                    first_name_display[0] = selectedStudent.First_Name[0];
+                    first_name_display[1] = '.';
+                    first_name_display[2] = '\0';
+                }
+                else
+                {
+                    strcpy(first_name_display, "-");
+                }
+                printf("%-34s", first_name_display);
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
@@ -7067,6 +7366,7 @@ void display_year_study_ui(Pr_index index_table[], int size, int value, char *fn
                 set_color(COLOR_WHITE);
                 printf("%-34s", date_str);
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
@@ -7078,6 +7378,7 @@ void display_year_study_ui(Pr_index index_table[], int size, int value, char *fn
                 set_color(COLOR_WHITE);
                 printf("%-38s", selectedStudent.Wilaya_Birth);
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
@@ -7090,6 +7391,7 @@ void display_year_study_ui(Pr_index index_table[], int size, int value, char *fn
                 printf("%-37s",
                        selectedStudent.Gender == 1 ? "Male" : "Female");
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
@@ -7101,6 +7403,7 @@ void display_year_study_ui(Pr_index index_table[], int size, int value, char *fn
                 set_color(COLOR_WHITE);
                 printf("%-34s", selectedStudent.Blood_Type);
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
@@ -7112,6 +7415,7 @@ void display_year_study_ui(Pr_index index_table[], int size, int value, char *fn
                 set_color(COLOR_WHITE);
                 printf("%-31s", selectedStudent.Year_Study);
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
@@ -7121,8 +7425,45 @@ void display_year_study_ui(Pr_index index_table[], int size, int value, char *fn
                 set_color(COLOR_YELLOW);
                 printf("Speciality: ");
                 set_color(COLOR_WHITE);
-                printf("%-34s", selectedStudent.Speciality);
+                
+                // CHECK IF STUDENT IS 2CS OR 3CS
+                if (strcmp(selectedStudent.Year_Study, "2CS") == 0 || 
+                    strcmp(selectedStudent.Year_Study, "3CS") == 0)
+                {
+                    // For 2CS/3CS: Extract text between parentheses
+                    char *speciality_text = selectedStudent.Speciality;
+                    char *start_paren = strchr(speciality_text, '(');
+                    char *end_paren = strchr(speciality_text, ')');
+                    
+                    if (start_paren != NULL && end_paren != NULL && end_paren > start_paren)
+                    {
+                        // Extract text between parentheses
+                        char extracted_speciality[50];
+                        int length = end_paren - start_paren - 1;
+                        if (length > 0 && length < sizeof(extracted_speciality))
+                        {
+                            strncpy(extracted_speciality, start_paren + 1, length);
+                            extracted_speciality[length] = '\0';
+                            printf("%-34s", extracted_speciality);
+                        }
+                        else
+                        {
+                            printf("%-34s", selectedStudent.Speciality);
+                        }
+                    }
+                    else
+                    {
+                        printf("%-34s", selectedStudent.Speciality);
+                    }
+                }
+                else
+                {
+                    // For other years: Show full speciality
+                    printf("%-34s", selectedStudent.Speciality);
+                }
+                
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
@@ -7134,12 +7475,13 @@ void display_year_study_ui(Pr_index index_table[], int size, int value, char *fn
                 set_color(COLOR_WHITE);
                 printf("%-29s", selectedStudent.Resident_UC ? "Yes" : "No");
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
                 // Bottom border - Cyan color
                 gotoxy(detailsStartX, y);
-                printf("+--------------------------------------------------+\n");
+                printf("+-------------------------------------------------+\n");
                 y += 2;
             }
         }
@@ -7310,6 +7652,13 @@ void display_year_study_ui(Pr_index index_table[], int size, int value, char *fn
         }
 
         hide_cursor();
+    }
+
+    // ========== CLEANUP ==========
+    // Free allocated memory
+    if (recordPositions != NULL)
+    {
+        free(recordPositions);
     }
 
     hide_cursor();
@@ -7345,6 +7694,8 @@ void display_birth_interval_ui(Pr_index index_table[], int size, int Y1, int Y2,
 
     // Count students in interval who are 20 or under
     int totalStudents = 0;
+    
+    // First pass: count students
     for (int i = 0; i < size; i++)
     {
         if (index_table[i].Identifier >= Y1 &&
@@ -7371,6 +7722,34 @@ void display_birth_interval_ui(Pr_index index_table[], int size, int Y1, int Y2,
         getchar();
         return;
     }
+
+    // ========== COUNT AND STORE POSITIONS ==========
+    t_LnOF *tempF;
+    Open(&tempF, fname, 'E');
+
+    // Store positions of students in this interval
+    typedef struct
+    {
+        long blockNum;
+        int offset;
+    } RecordPosition;
+
+    RecordPosition *recordPositions = malloc(totalStudents * sizeof(RecordPosition));
+    int recordIndex = 0;
+
+    for (int i = 0; i < size && recordIndex < totalStudents; i++)
+    {
+        if (index_table[i].Identifier >= Y1 &&
+            index_table[i].Identifier <= Y2 &&
+            index_table[i].Identifier >= max_birth_year)
+        {
+            recordPositions[recordIndex].blockNum = index_table[i].crdt.block_number;
+            recordPositions[recordIndex].offset = index_table[i].crdt.offset;
+            recordIndex++;
+        }
+    }
+
+    Close(tempF);
 
     // ========== MAIN DISPLAY LOOP ==========
     int width = get_terminal_width();
@@ -7405,12 +7784,12 @@ void display_birth_interval_ui(Pr_index index_table[], int size, int Y1, int Y2,
         set_color(COLOR_MAGENTA);
         printf("%s", title);
 
-        gotoxy(center_x - 10, 3);
+        gotoxy(center_x - 26, 3);
         set_color(COLOR_YELLOW);
-        printf("Total Students: %d (Born 2005 or later)", totalStudents);
+        printf("Cost : %d | Total Students: %d (Born 2005 or later)",totalStudents, totalStudents);
 
         // ========== OPEN FILE ==========
-        t_LnOVS *F;
+        t_LnOF *F;
         Open(&F, fname, 'E');
 
         // Calculate current page indices
@@ -7450,89 +7829,87 @@ void display_birth_interval_ui(Pr_index index_table[], int size, int Y1, int Y2,
             printf("+----+------------+---------------------+------------+------------+------------+\n");
             y++;
 
-            // Display records for current page
+            // Display records for current page using stored positions
             int displayed = 0;
             rec selectedStudent;
             bool foundSelected = false;
             block buffer;
 
-            // Find and display students for current page
-            int studentCount = 0;
-            for (int i = 0; i < size && displayed < recordsPerPage; i++)
+            for (int i = startIdx; i < endIdx && i < totalStudents; i++)
             {
-                if (index_table[i].Identifier >= Y1 &&
-                    index_table[i].Identifier <= Y2 &&
-                    index_table[i].Identifier >= max_birth_year)
+                // Get record position from stored array
+                RecordPosition pos = recordPositions[i];
+
+                // Read the block and get the record
+                ReadBlock(F, pos.blockNum, &buffer);
+                if (C43 && i == startIdx) // Count cost only once per page
+                    (*C43)++;
+
+                rec student = buffer.tab[pos.offset];
+
+                gotoxy(tableStartX, y);
+
+                // Highlight cursor line
+                if (i == startIdx + cursorIndex)
                 {
-                    if (studentCount >= startIdx && studentCount < endIdx)
-                    {
-                        // Get record position
-                        Pr_cor coords = index_table[i].crdt;
-
-                        // Read the block and get the record
-                        ReadBlock(F, coords.block_number, &buffer);
-                        if (C43 && studentCount == startIdx) // Count cost only once per page
-                            (*C43)++;
-
-                        rec student = buffer.tab[coords.offset];
-
-                        gotoxy(tableStartX, y);
-
-                        // Highlight cursor line
-                        if (cursorIndex == displayed)
-                        {
-                            set_color(COLOR_GREEN);
-                            printf("|>%-3d", studentCount + 1);
-                            set_color(COLOR_WHITE);
-                            // Store the selected student for details display
-                            selectedStudent = student;
-                            foundSelected = true;
-                        }
-                        else
-                        {
-                            printf("| %-3d", studentCount + 1);
-                        }
-
-                        // Student ID
-                        printf("| %-10d ", student.Student_ID);
-
-                        // Name (truncated)
-                        char name[21];
-                        snprintf(name, sizeof(name), "%s %c",
-                                 student.Family_Name, student.First_Name[0]);
-                        if (strlen(name) > 20)
-                        {
-                            strncpy(name, name, 17);
-                            strcpy(name + 17, "...");
-                        }
-                        printf("| %-19s ", name);
-
-                        // Birth date
-                        char date[11];
-                        snprintf(date, sizeof(date), "%02d/%02d/%04d",
-                                 student.Date_Birth.day,
-                                 student.Date_Birth.month,
-                                 student.Date_Birth.year);
-                        printf("| %-10s ", date);
-
-                        // Wilaya (truncated)
-                        char wil[11];
-                        strncpy(wil, student.Wilaya_Birth, 10);
-                        wil[10] = '\0';
-                        if (strlen(student.Wilaya_Birth) > 10)
-                        {
-                            strcpy(wil + 7, "...");
-                        }
-                        printf("| %-10s ", wil);
-
-                        // Blood type
-                        printf("| %-10s |\n", student.Blood_Type);
-
-                        y++;
-                        displayed++;
-                    }
-                    studentCount++;
+                    set_color(COLOR_GREEN);
+                    printf("|>%-3d", i + 1);
+                    set_color(COLOR_WHITE);
+                    // Store the selected student for details display
+                    selectedStudent = student;
+                    foundSelected = true;
                 }
+                else
+                {
+                    printf("| %-3d", i + 1);
+                }
+
+                // Student ID
+                printf("| %-10d ", student.Student_ID);
+
+                // Name (truncated) - Family Name (10 chars) + First initial
+                char family_display[11];
+                char name[21];
+
+                // Get first 10 chars of family name
+                strncpy(family_display, student.Family_Name, 10);
+                family_display[10] = '\0';
+                if (strlen(student.Family_Name) > 10)
+                {
+                    family_display[9] = '.';
+                    family_display[10] = '\0';
+                }
+
+                // Get first char of first name
+                char first_initial = (strlen(student.First_Name) > 0) ? student.First_Name[0] : '-';
+
+                // Create combined name display
+                snprintf(name, sizeof(name), "%s %c.", family_display, first_initial);
+                printf("| %-19s ", name);
+
+                // Birth date
+                char date[11];
+                snprintf(date, sizeof(date), "%02d/%02d/%04d",
+                         student.Date_Birth.day,
+                         student.Date_Birth.month,
+                         student.Date_Birth.year);
+                printf("| %-10s ", date);
+
+                // Wilaya (truncated)
+                char wil[11];
+                strncpy(wil, student.Wilaya_Birth, 10);
+                wil[10] = '\0';
+                if (strlen(student.Wilaya_Birth) > 10)
+                {
+                    strcpy(wil + 7, "...");
+                }
+                printf("| %-10s ", wil);
+
+                // Blood type
+                printf("| %-10s |\n", student.Blood_Type);
+
+                y++;
+                displayed++;
             }
 
             // Table footer
@@ -7556,7 +7933,7 @@ void display_birth_interval_ui(Pr_index index_table[], int size, int Y1, int Y2,
                 // Top border - Cyan color
                 gotoxy(detailsStartX, y);
                 set_color(COLOR_CYAN);
-                printf("+--------------------------------------------------+\n");
+                printf("+-------------------------------------------------+\n");
                 y++;
 
                 // Title - Yellow color
@@ -7567,12 +7944,13 @@ void display_birth_interval_ui(Pr_index index_table[], int size, int Y1, int Y2,
                 printf("STUDENT RECORD");
                 gotoxy(detailsStartX + detailsWidth - 1, y);
                 set_color(COLOR_CYAN);
-                printf("|\n");
+                printf(" |\n");
                 y++;
 
                 // Separator - Cyan color
                 gotoxy(detailsStartX, y);
-                printf("+--------------------------------------------------+\n");
+                set_color(COLOR_CYAN);
+                printf("+-------------------------------------------------+\n");
                 y++;
 
                 // Student ID - Yellow label, White value
@@ -7583,6 +7961,7 @@ void display_birth_interval_ui(Pr_index index_table[], int size, int Y1, int Y2,
                 set_color(COLOR_WHITE);
                 printf("%-35d", selectedStudent.Student_ID);
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
@@ -7592,8 +7971,18 @@ void display_birth_interval_ui(Pr_index index_table[], int size, int Y1, int Y2,
                 set_color(COLOR_YELLOW);
                 printf("Family Name: ");
                 set_color(COLOR_WHITE);
-                printf("%-33s", selectedStudent.Family_Name);
+                // Display first 10 characters of family name
+                char family_display[11];
+                strncpy(family_display, selectedStudent.Family_Name, 10);
+                family_display[10] = '\0';
+                if (strlen(selectedStudent.Family_Name) > 10)
+                {
+                    family_display[9] = '.';
+                    family_display[10] = '\0';
+                }
+                printf("%-33s", family_display);
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
@@ -7603,8 +7992,21 @@ void display_birth_interval_ui(Pr_index index_table[], int size, int Y1, int Y2,
                 set_color(COLOR_YELLOW);
                 printf("First Name: ");
                 set_color(COLOR_WHITE);
-                printf("%-34s", selectedStudent.First_Name);
+                // Display first character of first name
+                char first_name_display[3];
+                if (strlen(selectedStudent.First_Name) > 0)
+                {
+                    first_name_display[0] = selectedStudent.First_Name[0];
+                    first_name_display[1] = '.';
+                    first_name_display[2] = '\0';
+                }
+                else
+                {
+                    strcpy(first_name_display, "-");
+                }
+                printf("%-34s", first_name_display);
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
@@ -7621,6 +8023,7 @@ void display_birth_interval_ui(Pr_index index_table[], int size, int Y1, int Y2,
                 set_color(COLOR_WHITE);
                 printf("%-34s", date_str);
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
@@ -7632,6 +8035,7 @@ void display_birth_interval_ui(Pr_index index_table[], int size, int Y1, int Y2,
                 set_color(COLOR_WHITE);
                 printf("%-38s", selectedStudent.Wilaya_Birth);
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
@@ -7644,6 +8048,7 @@ void display_birth_interval_ui(Pr_index index_table[], int size, int Y1, int Y2,
                 printf("%-37s",
                        selectedStudent.Gender == 1 ? "Male" : "Female");
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
@@ -7655,6 +8060,7 @@ void display_birth_interval_ui(Pr_index index_table[], int size, int Y1, int Y2,
                 set_color(COLOR_WHITE);
                 printf("%-34s", selectedStudent.Blood_Type);
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
@@ -7666,6 +8072,7 @@ void display_birth_interval_ui(Pr_index index_table[], int size, int Y1, int Y2,
                 set_color(COLOR_WHITE);
                 printf("%-31s", selectedStudent.Year_Study);
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
@@ -7675,8 +8082,45 @@ void display_birth_interval_ui(Pr_index index_table[], int size, int Y1, int Y2,
                 set_color(COLOR_YELLOW);
                 printf("Speciality: ");
                 set_color(COLOR_WHITE);
-                printf("%-34s", selectedStudent.Speciality);
+                
+                // CHECK IF STUDENT IS 2CS OR 3CS
+                if (strcmp(selectedStudent.Year_Study, "2CS") == 0 || 
+                    strcmp(selectedStudent.Year_Study, "3CS") == 0)
+                {
+                    // For 2CS/3CS: Extract text between parentheses
+                    char *speciality_text = selectedStudent.Speciality;
+                    char *start_paren = strchr(speciality_text, '(');
+                    char *end_paren = strchr(speciality_text, ')');
+                    
+                    if (start_paren != NULL && end_paren != NULL && end_paren > start_paren)
+                    {
+                        // Extract text between parentheses
+                        char extracted_speciality[50];
+                        int length = end_paren - start_paren - 1;
+                        if (length > 0 && length < sizeof(extracted_speciality))
+                        {
+                            strncpy(extracted_speciality, start_paren + 1, length);
+                            extracted_speciality[length] = '\0';
+                            printf("%-34s", extracted_speciality);
+                        }
+                        else
+                        {
+                            printf("%-34s", selectedStudent.Speciality);
+                        }
+                    }
+                    else
+                    {
+                        printf("%-34s", selectedStudent.Speciality);
+                    }
+                }
+                else
+                {
+                    // For other years: Show full speciality
+                    printf("%-34s", selectedStudent.Speciality);
+                }
+                
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
@@ -7688,6 +8132,7 @@ void display_birth_interval_ui(Pr_index index_table[], int size, int Y1, int Y2,
                 set_color(COLOR_WHITE);
                 printf("%-29s", selectedStudent.Resident_UC ? "Yes" : "No");
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
@@ -7700,12 +8145,13 @@ void display_birth_interval_ui(Pr_index index_table[], int size, int Y1, int Y2,
                 set_color(COLOR_WHITE);
                 printf("%-41d", age);
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
                 // Bottom border - Cyan color
                 gotoxy(detailsStartX, y);
-                printf("+--------------------------------------------------+\n");
+                printf("+-------------------------------------------------+\n");
                 y += 2;
             }
         }
@@ -7876,6 +8322,13 @@ void display_birth_interval_ui(Pr_index index_table[], int size, int Y1, int Y2,
         }
 
         hide_cursor();
+    }
+
+    // ========== CLEANUP ==========
+    // Free allocated memory
+    if (recordPositions != NULL)
+    {
+        free(recordPositions);
     }
 
     hide_cursor();
@@ -7933,7 +8386,7 @@ void display_students_list_ui(const char *title, const char *subtitle,
         printf("+--------------------------------------------------------------+\n");
 
         // ========== TABLE SECTION ==========
-        t_LnOVS *F;
+        t_LnOF *F;
         Open(&F, fname, 'E');
         block buffer;
 
@@ -8238,7 +8691,7 @@ void display_students_list_ui(const char *title, const char *subtitle,
                     }
 
                     // Display student details
-                    t_LnOVS *F2;
+                    t_LnOF *F2;
                     Open(&F2, fname, 'E');
                     block buf2;
                     Pr_cor coords = index_table[studentIdx].crdt;
@@ -8337,7 +8790,7 @@ void display_students_list_interval_ui(const char *title,
         printf("+--------------------------------------------------------------+\n");
 
         // ========== TABLE SECTION ==========
-        t_LnOVS *F;
+        t_LnOF *F;
         Open(&F, fname, 'E');
         block buffer;
 
@@ -8665,7 +9118,7 @@ void display_students_list_interval_ui(const char *title,
                     if (studentIdx != -1)
                     {
                         // Display student details
-                        t_LnOVS *F2;
+                        t_LnOF *F2;
                         Open(&F2, fname, 'E');
                         block buf2;
                         Pr_cor coords = index_table[studentIdx].crdt;
@@ -8783,10 +9236,9 @@ void display_record_detail_ui(rec student, int center_x)
 }
 
 /**
- * Simplified UI for displaying block contents with file selection
- * Shows only records table with student details below
+ * Enhanced UI for displaying block contents with the same layout as display_all_contents_ui
  */
-void display_block_ui(t_LnOVS *F, int blkN, char *Fname)
+void display_block_ui(t_LnOF *F, int blkN, char *Fname)
 {
     int width = get_terminal_width();
     int height = get_terminal_height();
@@ -8832,7 +9284,7 @@ void display_block_ui(t_LnOVS *F, int blkN, char *Fname)
     // ========== GET MAX BLOCKS ==========
     // Get maximum blocks in file
     int maxBlocks = 0;
-    t_LnOVS *tempF;
+    t_LnOF *tempF;
     Open(&tempF, filename, 'E');
     if (tempF == NULL)
     {
@@ -8943,20 +9395,6 @@ void display_block_ui(t_LnOVS *F, int blkN, char *Fname)
         CLEAR_SCREEN();
         hide_cursor();
 
-        // ========== HEADER SECTION ==========
-        set_color(COLOR_CYAN);
-        for (int i = 0; i < width; i++)
-            printf("=");
-        printf("\n");
-
-        gotoxy(center_x - 15, 2);
-        set_color(COLOR_MAGENTA);
-        printf("BLOCK %d CONTENTS", currentBlock);
-
-        gotoxy(center_x - 10, 3);
-        set_color(COLOR_YELLOW);
-        printf("File: %s | Block: %d/%d", filename, currentBlock, maxBlocks);
-
         // ========== OPEN FILE AND READ BLOCK ==========
         Open(&F, filename, 'E');
         block buff;
@@ -8977,35 +9415,59 @@ void display_block_ui(t_LnOVS *F, int blkN, char *Fname)
             return;
         }
 
-        // Read the block - ReadBlock doesn't return a value
+        // Read the block
         ReadBlock(F, currentBlock, &buff);
 
-        // Check if the block data appears valid
-        if (buff.Nb < 0 || buff.Nb > 40)
+        // Get total records in this block (excluding deleted records)
+        int totalRecords = 0;
+        for (int i = 0; i < buff.Nb; i++)
         {
-            gotoxy(center_x - 20, 10);
-            set_color(COLOR_YELLOW);
-            printf("Warning: Block %d has invalid record count (%d)", currentBlock, buff.Nb);
-
-            // Try to recover by limiting to reasonable values
-            if (buff.Nb < 0)
-                buff.Nb = 0;
-            if (buff.Nb > 40)
-                buff.Nb = 40;
-
-            gotoxy(center_x - 20, 11);
-            printf("Displaying %d records...", buff.Nb);
-
-            // Don't return - try to display what we have
+            if (buff.tab[i].Student_ID != -1)
+            {
+                totalRecords++;
+            }
         }
 
-        int y = 6;
+        // ========== HEADER SECTION ==========
+        set_color(COLOR_CYAN);
+        for (int i = 0; i < width; i++)
+            printf("=");
+        printf("\n");
+
+        gotoxy(center_x - 15, 2);
+        set_color(COLOR_MAGENTA);
+        printf("BLOCK %d CONTENTS", currentBlock);
+
+        // SHOW NUMBER OF RECORDS IN BLOCK HEADER - MATCHING display_all_contents_ui
+        gotoxy(center_x - 26, 3);
+        set_color(COLOR_YELLOW);
+        printf("Cost: %d | File: %s | Block: %d/%d | Records in Block: %d", 
+               totalRecords,filename, currentBlock, maxBlocks, totalRecords);
 
         // ========== RECORDS TABLE ==========
-        if (buff.Nb > 0)
+        if (totalRecords > 0)
         {
+            // Store positions of non-deleted records in this block
+            typedef struct
+            {
+                int offset;
+            } RecordPosition;
+
+            RecordPosition *recordPositions = malloc(totalRecords * sizeof(RecordPosition));
+            int recordIndex = 0;
+
+            // Store positions of non-deleted records
+            for (int i = 0; i < buff.Nb && recordIndex < totalRecords; i++)
+            {
+                if (buff.tab[i].Student_ID != -1)
+                {
+                    recordPositions[recordIndex].offset = i;
+                    recordIndex++;
+                }
+            }
+
             // Calculate pagination
-            int totalPages = (buff.Nb + recordsPerPage - 1) / recordsPerPage;
+            int totalPages = (totalRecords + recordsPerPage - 1) / recordsPerPage;
             if (totalPages == 0)
                 totalPages = 1;
 
@@ -9017,17 +9479,19 @@ void display_block_ui(t_LnOVS *F, int blkN, char *Fname)
 
             int startIdx = (currentPage - 1) * recordsPerPage;
             int endIdx = startIdx + recordsPerPage;
-            if (endIdx > buff.Nb)
-                endIdx = buff.Nb;
+            if (endIdx > totalRecords)
+                endIdx = totalRecords;
 
-            // Page info
+            int y = 6;
+
+            // Page info - MATCHING display_all_contents_ui
             gotoxy(center_x - 20, y);
             set_color(COLOR_GREEN);
             printf("Page %d/%d - Records %d to %d of %d",
-                   currentPage, totalPages, startIdx + 1, endIdx, buff.Nb);
+                   currentPage, totalPages, startIdx + 1, endIdx, totalRecords);
             y += 2;
 
-            // Table header
+            // Table header - EXACTLY LIKE display_all_contents_ui
             int tableWidth = 90;
             int tableStartX = center_x - (tableWidth / 2);
 
@@ -9046,255 +9510,333 @@ void display_block_ui(t_LnOVS *F, int blkN, char *Fname)
             printf("+----+------------+---------------------+------------+------------+------------+\n");
             y++;
 
-            // Display records for current page
+            // Display records for current page using stored positions
             int displayed = 0;
-            for (int i = startIdx; i < endIdx && i < buff.Nb; i++)
+            rec selectedStudent;
+            bool foundSelected = false;
+
+            for (int i = startIdx; i < endIdx && i < totalRecords; i++)
             {
-                rec student = buff.tab[i];
+                // Get record position from stored array
+                int offset = recordPositions[i].offset;
+                rec student = buff.tab[offset];
 
                 gotoxy(tableStartX, y);
 
-                // Highlight cursor line
-                if (i == cursorIndex)
+                // Highlight cursor line - MATCHING display_all_contents_ui
+                if (i == startIdx + cursorIndex)
                 {
                     set_color(COLOR_GREEN);
                     printf("|>%-3d", i + 1);
                     set_color(COLOR_WHITE);
+                    // Store the selected student for details display
+                    selectedStudent = student;
+                    foundSelected = true;
                 }
                 else
                 {
                     printf("| %-3d", i + 1);
                 }
 
-                if (student.Student_ID == -1)
+                // Student ID
+                printf("| %-10d ", student.Student_ID);
+
+                // Name (truncated) - Family Name (10 chars) + First initial - EXACTLY LIKE display_all_contents_ui
+                char family_display[11];
+                char name[21];
+
+                // Get first 10 chars of family name
+                strncpy(family_display, student.Family_Name, 10);
+                family_display[10] = '\0';
+                if (strlen(student.Family_Name) > 10)
                 {
-                    // Deleted record
-                    printf("| %-10s | %-19s | %-10s | %-10s | %-10s |\n",
-                           "DELETED", "", "", "", "");
+                    family_display[9] = '.';
+                    family_display[10] = '\0';
                 }
-                else
+
+                // Get first char of first name
+                char first_initial = (strlen(student.First_Name) > 0) ? student.First_Name[0] : '-';
+
+                // Create combined name display
+                snprintf(name, sizeof(name), "%s %c.", family_display, first_initial);
+                printf("| %-19s ", name);
+
+                // Birth date
+                char date[11];
+                snprintf(date, sizeof(date), "%02d/%02d/%04d",
+                         student.Date_Birth.day,
+                         student.Date_Birth.month,
+                         student.Date_Birth.year);
+                printf("| %-10s ", date);
+
+                // Wilaya (truncated)
+                char wil[11];
+                strncpy(wil, student.Wilaya_Birth, 10);
+                wil[10] = '\0';
+                if (strlen(student.Wilaya_Birth) > 10)
                 {
-                    // Student ID
-                    printf("| %-10d ", student.Student_ID);
-
-                    // Name (truncated)
-                    char name[21];
-                    snprintf(name, sizeof(name), "%s %c",
-                             student.Family_Name, student.First_Name[0]);
-                    if (strlen(name) > 20)
-                    {
-                        strncpy(name, name, 17);
-                        strcpy(name + 17, "...");
-                    }
-                    printf("| %-19s ", name);
-
-                    // Birth date
-                    char date[11];
-                    snprintf(date, sizeof(date), "%02d/%02d/%04d",
-                             student.Date_Birth.day,
-                             student.Date_Birth.month,
-                             student.Date_Birth.year);
-                    printf("| %-10s ", date);
-
-                    // Wilaya (truncated)
-                    char wil[11];
-                    strncpy(wil, student.Wilaya_Birth, 10);
-                    wil[10] = '\0';
-                    if (strlen(student.Wilaya_Birth) > 10)
-                    {
-                        strcpy(wil + 7, "...");
-                    }
-                    printf("| %-10s ", wil);
-
-                    // Blood type
-                    printf("| %-10s |\n", student.Blood_Type);
+                    strcpy(wil + 7, "...");
                 }
+                printf("| %-10s ", wil);
+
+                // Blood type
+                printf("| %-10s |\n", student.Blood_Type);
+
                 y++;
                 displayed++;
             }
 
+            // Table footer
             gotoxy(tableStartX, y);
             set_color(COLOR_CYAN);
             printf("+----+------------+---------------------+------------+------------+------------+\n");
             y += 2;
 
             // ========== CURRENT RECORD DETAILS (VERTICAL FORMAT) ==========
-            if (cursorIndex >= 0 && cursorIndex < buff.Nb)
+            if (foundSelected)
             {
-                rec currentStudent = buff.tab[cursorIndex];
+                gotoxy(center_x - 20, y);
+                set_color(COLOR_MAGENTA);
+                printf("SELECTED STUDENT DETAILS:");
+                y++;
 
-                if (currentStudent.Student_ID != -1)
+                // Create a vertical details table with consistent colors
+                int detailsWidth = 50;
+                int detailsStartX = center_x - (detailsWidth / 2);
+
+                // Top border - Cyan color
+                gotoxy(detailsStartX, y);
+                set_color(COLOR_CYAN);
+                printf("+-------------------------------------------------+\n");
+                y++;
+
+                // Title - Yellow color
+                gotoxy(detailsStartX, y);
+                printf("|");
+                gotoxy(center_x - 10, y);
+                set_color(COLOR_YELLOW);
+                printf("STUDENT RECORD");
+                gotoxy(detailsStartX + detailsWidth - 1, y);
+                set_color(COLOR_CYAN);
+                printf(" |\n");
+                y++;
+
+                // Separator - Cyan color
+                gotoxy(detailsStartX, y);
+                set_color(COLOR_CYAN);
+                printf("+-------------------------------------------------+\n");
+                y++;
+
+                // Student ID - Yellow label, White value
+                gotoxy(detailsStartX, y);
+                printf("|  ");
+                set_color(COLOR_YELLOW);
+                printf("Student ID: ");
+                set_color(COLOR_WHITE);
+                printf("%-35d", selectedStudent.Student_ID);
+                set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
+                printf(" |\n");
+                y++;
+
+                // Family Name - Yellow label, White value
+                gotoxy(detailsStartX, y);
+                printf("|  ");
+                set_color(COLOR_YELLOW);
+                printf("Family Name: ");
+                set_color(COLOR_WHITE);
+                // Display first 10 characters of family name
+                char family_display[11];
+                strncpy(family_display, selectedStudent.Family_Name, 10);
+                family_display[10] = '\0';
+                if (strlen(selectedStudent.Family_Name) > 10)
                 {
-                    gotoxy(center_x - 20, y);
-                    set_color(COLOR_MAGENTA);
-                    printf("SELECTED STUDENT DETAILS:");
-                    y++;
-
-                    // Create a vertical details table with consistent colors
-                    int detailsWidth = 50;
-                    int detailsStartX = center_x - (detailsWidth / 2);
-
-                    // Top border - Cyan color
-                    gotoxy(detailsStartX, y);
-                    set_color(COLOR_CYAN);
-                    printf("+--------------------------------------------------+\n");
-                    y++;
-
-                    // Title - Yellow color
-                    gotoxy(detailsStartX, y);
-                    printf("|");
-                    gotoxy(center_x - 10, y);
-                    set_color(COLOR_YELLOW);
-                    printf("STUDENT RECORD");
-                    gotoxy(detailsStartX + detailsWidth - 1, y);
-                    set_color(COLOR_CYAN);
-                    printf("|\n");
-                    y++;
-
-                    // Separator - Cyan color
-                    gotoxy(detailsStartX, y);
-                    printf("+--------------------------------------------------+\n");
-                    y++;
-
-                    // Student ID - Yellow label, White value
-                    gotoxy(detailsStartX, y);
-                    printf("|  ");
-                    set_color(COLOR_YELLOW);
-                    printf("Student ID: ");
-                    set_color(COLOR_WHITE);
-                    printf("%-35d", currentStudent.Student_ID);
-                    set_color(COLOR_CYAN);
-                    printf(" |\n");
-                    y++;
-
-                    // Family Name - Yellow label, White value
-                    gotoxy(detailsStartX, y);
-                    printf("|  ");
-                    set_color(COLOR_YELLOW);
-                    printf("Family Name: ");
-                    set_color(COLOR_WHITE);
-                    printf("%-33s", currentStudent.Family_Name);
-                    set_color(COLOR_CYAN);
-                    printf(" |\n");
-                    y++;
-
-                    // First Name - Yellow label, White value
-                    gotoxy(detailsStartX, y);
-                    printf("|  ");
-                    set_color(COLOR_YELLOW);
-                    printf("First Name: ");
-                    set_color(COLOR_WHITE);
-                    printf("%-34s", currentStudent.First_Name);
-                    set_color(COLOR_CYAN);
-                    printf(" |\n");
-                    y++;
-
-                    // Birth Date - Yellow label, White value
-                    gotoxy(detailsStartX, y);
-                    printf("|  ");
-                    set_color(COLOR_YELLOW);
-                    printf("Birth Date: ");
-                    char date_str[20];
-                    snprintf(date_str, sizeof(date_str), "%02d/%02d/%04d",
-                             currentStudent.Date_Birth.day,
-                             currentStudent.Date_Birth.month,
-                             currentStudent.Date_Birth.year);
-                    set_color(COLOR_WHITE);
-                    printf("%-34s", date_str);
-                    set_color(COLOR_CYAN);
-                    printf(" |\n");
-                    y++;
-
-                    // Wilaya - Yellow label, White value
-                    gotoxy(detailsStartX, y);
-                    printf("|  ");
-                    set_color(COLOR_YELLOW);
-                    printf("Wilaya: ");
-                    set_color(COLOR_WHITE);
-                    printf("%-38s", currentStudent.Wilaya_Birth);
-                    set_color(COLOR_CYAN);
-                    printf(" |\n");
-                    y++;
-
-                    // Gender - Yellow label, White value
-                    gotoxy(detailsStartX, y);
-                    printf("|  ");
-                    set_color(COLOR_YELLOW);
-                    printf("Gender: ");
-                    set_color(COLOR_WHITE);
-                    printf("%-37s",
-                           currentStudent.Gender == 1 ? "Male" : "Female");
-                    set_color(COLOR_CYAN);
-                    printf(" |\n");
-                    y++;
-
-                    // Blood Type - Yellow label, White value
-                    gotoxy(detailsStartX, y);
-                    printf("|  ");
-                    set_color(COLOR_YELLOW);
-                    printf("Blood Type: ");
-                    set_color(COLOR_WHITE);
-                    printf("%-34s", currentStudent.Blood_Type);
-                    set_color(COLOR_CYAN);
-                    printf(" |\n");
-                    y++;
-
-                    // Year of Study - Yellow label, White value
-                    gotoxy(detailsStartX, y);
-                    printf("|  ");
-                    set_color(COLOR_YELLOW);
-                    printf("Year of Study: ");
-                    set_color(COLOR_WHITE);
-                    printf("%-31s", currentStudent.Year_Study);
-                    set_color(COLOR_CYAN);
-                    printf(" |\n");
-                    y++;
-
-                    // Speciality - Yellow label, White value
-                    gotoxy(detailsStartX, y);
-                    printf("|  ");
-                    set_color(COLOR_YELLOW);
-                    printf("Speciality: ");
-                    set_color(COLOR_WHITE);
-                    printf("%-34s", currentStudent.Speciality);
-                    set_color(COLOR_CYAN);
-                    printf(" |\n");
-                    y++;
-
-                    // Campus Resident - Yellow label, White value
-                    gotoxy(detailsStartX, y);
-                    printf("|  ");
-                    set_color(COLOR_YELLOW);
-                    printf("Campus Resident: ");
-                    set_color(COLOR_WHITE);
-                    printf("%-29s", currentStudent.Resident_UC ? "Yes" : "No");
-                    set_color(COLOR_CYAN);
-                    printf(" |\n");
-                    y++;
-
-                    // Location - Yellow label, White value
-                    gotoxy(detailsStartX, y);
-                    printf("|  ");
-                    set_color(COLOR_YELLOW);
-                    printf("Location: ");
-                    set_color(COLOR_WHITE);
-                    printf("Block %-31d", currentBlock);
-                    set_color(COLOR_CYAN);
-                    printf(" |\n");
-                    y++;
-
-                    // Bottom border - Cyan color
-                    gotoxy(detailsStartX, y);
-                    printf("+--------------------------------------------------+\n");
-                    y += 2;
+                    family_display[9] = '.';
+                    family_display[10] = '\0';
                 }
+                printf("%-33s", family_display);
+                set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
+                printf(" |\n");
+                y++;
+
+                // First Name - Yellow label, White value
+                gotoxy(detailsStartX, y);
+                printf("|  ");
+                set_color(COLOR_YELLOW);
+                printf("First Name: ");
+                set_color(COLOR_WHITE);
+                // Display first character of first name
+                char first_name_display[3];
+                if (strlen(selectedStudent.First_Name) > 0)
+                {
+                    first_name_display[0] = selectedStudent.First_Name[0];
+                    first_name_display[1] = '.';
+                    first_name_display[2] = '\0';
+                }
+                else
+                {
+                    strcpy(first_name_display, "-");
+                }
+                printf("%-34s", first_name_display);
+                set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
+                printf(" |\n");
+                y++;
+
+                // Birth Date - Yellow label, White value
+                gotoxy(detailsStartX, y);
+                printf("|  ");
+                set_color(COLOR_YELLOW);
+                printf("Birth Date: ");
+                char date_str[20];
+                snprintf(date_str, sizeof(date_str), "%02d/%02d/%04d",
+                         selectedStudent.Date_Birth.day,
+                         selectedStudent.Date_Birth.month,
+                         selectedStudent.Date_Birth.year);
+                set_color(COLOR_WHITE);
+                printf("%-34s", date_str);
+                set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
+                printf(" |\n");
+                y++;
+
+                // Wilaya - Yellow label, White value
+                gotoxy(detailsStartX, y);
+                printf("|  ");
+                set_color(COLOR_YELLOW);
+                printf("Wilaya: ");
+                set_color(COLOR_WHITE);
+                printf("%-38s", selectedStudent.Wilaya_Birth);
+                set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
+                printf(" |\n");
+                y++;
+
+                // Gender - Yellow label, White value
+                gotoxy(detailsStartX, y);
+                printf("|  ");
+                set_color(COLOR_YELLOW);
+                printf("Gender: ");
+                set_color(COLOR_WHITE);
+                printf("%-37s",
+                       selectedStudent.Gender == 1 ? "Male" : "Female");
+                set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
+                printf(" |\n");
+                y++;
+
+                // Blood Type - Yellow label, White value
+                gotoxy(detailsStartX, y);
+                printf("|  ");
+                set_color(COLOR_YELLOW);
+                printf("Blood Type: ");
+                set_color(COLOR_WHITE);
+                printf("%-34s", selectedStudent.Blood_Type);
+                set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
+                printf(" |\n");
+                y++;
+
+                // Year of Study - Yellow label, White value
+                gotoxy(detailsStartX, y);
+                printf("|  ");
+                set_color(COLOR_YELLOW);
+                printf("Year of Study: ");
+                set_color(COLOR_WHITE);
+                printf("%-31s", selectedStudent.Year_Study);
+                set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
+                printf(" |\n");
+                y++;
+
+                // Speciality - Yellow label, White value
+                gotoxy(detailsStartX, y);
+                printf("|  ");
+                set_color(COLOR_YELLOW);
+                printf("Speciality: ");
+                set_color(COLOR_WHITE);
+                
+                // CHECK IF STUDENT IS 2CS OR 3CS
+                if (strcmp(selectedStudent.Year_Study, "2CS") == 0 || 
+                    strcmp(selectedStudent.Year_Study, "3CS") == 0)
+                {
+                    // For 2CS/3CS: Extract text between parentheses
+                    char *speciality_text = selectedStudent.Speciality;
+                    char *start_paren = strchr(speciality_text, '(');
+                    char *end_paren = strchr(speciality_text, ')');
+                    
+                    if (start_paren != NULL && end_paren != NULL && end_paren > start_paren)
+                    {
+                        // Extract text between parentheses
+                        char extracted_speciality[50];
+                        int length = end_paren - start_paren - 1;
+                        if (length > 0 && length < sizeof(extracted_speciality))
+                        {
+                            strncpy(extracted_speciality, start_paren + 1, length);
+                            extracted_speciality[length] = '\0';
+                            printf("%-34s", extracted_speciality);
+                        }
+                        else
+                        {
+                            printf("%-34s", selectedStudent.Speciality);
+                        }
+                    }
+                    else
+                    {
+                        printf("%-34s", selectedStudent.Speciality);
+                    }
+                }
+                else
+                {
+                    // For other years: Show full speciality
+                    printf("%-34s", selectedStudent.Speciality);
+                }
+                
+                set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
+                printf(" |\n");
+                y++;
+
+                // Campus Resident - Yellow label, White value
+                gotoxy(detailsStartX, y);
+                printf("|  ");
+                set_color(COLOR_YELLOW);
+                printf("Campus Resident: ");
+                set_color(COLOR_WHITE);
+                printf("%-29s", selectedStudent.Resident_UC ? "Yes" : "No");
+                set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
+                printf(" |\n");
+                y++;
+
+                // Location - Yellow label, White value
+                gotoxy(detailsStartX, y);
+                printf("|  ");
+                set_color(COLOR_YELLOW);
+                printf("Location: ");
+                set_color(COLOR_WHITE);
+                printf("Block %-31d", currentBlock);
+                set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
+                printf(" |\n");
+                y++;
+
+                // Bottom border - Cyan color
+                gotoxy(detailsStartX, y);
+                printf("+-------------------------------------------------+\n");
+                y += 2;
             }
+
+            // Free allocated memory
+            free(recordPositions);
         }
         else
         {
+            int y = 6;
             gotoxy(center_x - 10, y);
             set_color(COLOR_YELLOW);
-            printf("Block %d is empty or has no valid records.", currentBlock);
+            printf("Block %d has no valid records.", currentBlock);
             y += 2;
         }
 
@@ -9302,20 +9844,21 @@ void display_block_ui(t_LnOVS *F, int blkN, char *Fname)
         Close(F);
 
         // ========== NAVIGATION INSTRUCTIONS ==========
-        y += 2;
+        int y = (totalRecords > 0) ? (height - 10) : 10;
+        
         gotoxy(center_x - 30, y);
         set_color(COLOR_CYAN);
         printf("Navigation: ");
 
         gotoxy(center_x - 30, y + 1);
         set_color(COLOR_WHITE);
-        printf("UP/DOWN: Select student | LEFT/RIGHT: Change page");
+        printf("UP/DOWN: Select record | LEFT/RIGHT: Change page");
 
         gotoxy(center_x - 30, y + 2);
-        printf("N: Next Block | P: Previous Block | B: Go to Block");
+        printf("N: Next Page | P: Previous Page | G: Go to Page");
 
         gotoxy(center_x - 30, y + 3);
-        printf("R: Return to Menu | ESC: Exit");
+        printf("B: Change Block | R: Return to Menu | ESC: Exit");
 
         y += 5;
 
@@ -9333,30 +9876,17 @@ void display_block_ui(t_LnOVS *F, int blkN, char *Fname)
             switch (key)
             {
             case 72: // Up arrow - move cursor up
-                if (buff.Nb > 0 && cursorIndex > 0)
+                if (totalRecords > 0 && cursorIndex > 0)
                 {
                     cursorIndex--;
-                    if (cursorIndex < (currentPage - 1) * recordsPerPage)
-                    {
-                        currentPage--;
-                        if (currentPage < 1)
-                            currentPage = 1;
-                    }
                     keyPressed = 1;
                 }
                 break;
 
             case 80: // Down arrow - move cursor down
-                if (buff.Nb > 0 && cursorIndex < buff.Nb - 1)
+                if (totalRecords > 0 && cursorIndex < totalRecords - 1)
                 {
                     cursorIndex++;
-                    if (cursorIndex >= currentPage * recordsPerPage)
-                    {
-                        currentPage++;
-                        int totalPages = (buff.Nb + recordsPerPage - 1) / recordsPerPage;
-                        if (currentPage > totalPages)
-                            currentPage = totalPages;
-                    }
                     keyPressed = 1;
                 }
                 break;
@@ -9365,18 +9895,16 @@ void display_block_ui(t_LnOVS *F, int blkN, char *Fname)
                 if (currentPage > 1)
                 {
                     currentPage--;
-                    cursorIndex = (currentPage - 1) * recordsPerPage;
+                    cursorIndex = 0;
                     keyPressed = 1;
                 }
                 break;
 
             case 77: // Right arrow - next page
-                if (currentPage < ((buff.Nb + recordsPerPage - 1) / recordsPerPage))
+                if (currentPage < ((totalRecords + recordsPerPage - 1) / recordsPerPage))
                 {
                     currentPage++;
-                    cursorIndex = (currentPage - 1) * recordsPerPage;
-                    if (cursorIndex >= buff.Nb)
-                        cursorIndex = buff.Nb - 1;
+                    cursorIndex = 0;
                     keyPressed = 1;
                 }
                 break;
@@ -9389,11 +9917,10 @@ void display_block_ui(t_LnOVS *F, int blkN, char *Fname)
 
             switch (key)
             {
-            case 'N': // Next Block
-                if (currentBlock < maxBlocks)
+            case 'N': // Next Page
+                if (currentPage < ((totalRecords + recordsPerPage - 1) / recordsPerPage))
                 {
-                    currentBlock++;
-                    currentPage = 1;
+                    currentPage++;
                     cursorIndex = 0;
                     keyPressed = 1;
                 }
@@ -9402,16 +9929,15 @@ void display_block_ui(t_LnOVS *F, int blkN, char *Fname)
                     // Show message
                     gotoxy(center_x - 10, y);
                     set_color(COLOR_RED);
-                    printf("No next block available! Max: %d", maxBlocks);
+                    printf("Already on last page!");
                     SLEEP_MS(1000);
                 }
                 break;
 
-            case 'P': // Previous Block
-                if (currentBlock > 1)
+            case 'P': // Previous Page
+                if (currentPage > 1)
                 {
-                    currentBlock--;
-                    currentPage = 1;
+                    currentPage--;
                     cursorIndex = 0;
                     keyPressed = 1;
                 }
@@ -9420,12 +9946,39 @@ void display_block_ui(t_LnOVS *F, int blkN, char *Fname)
                     // Show message
                     gotoxy(center_x - 10, y);
                     set_color(COLOR_RED);
-                    printf("No previous block available! Already at block 1");
+                    printf("Already on first page!");
                     SLEEP_MS(1000);
                 }
                 break;
 
-            case 'B': // Go to Block
+            case 'G': // Go to Page
+            {
+                int newPage;
+                gotoxy(center_x - 15, y);
+                set_color(COLOR_YELLOW);
+                printf("Enter page number (1-%d): ", (totalRecords + recordsPerPage - 1) / recordsPerPage);
+                show_cursor();
+                scanf("%d", &newPage);
+                getchar();
+
+                if (newPage > 0 && newPage <= ((totalRecords + recordsPerPage - 1) / recordsPerPage))
+                {
+                    currentPage = newPage;
+                    cursorIndex = 0;
+                    keyPressed = 1;
+                }
+                else
+                {
+                    // Show error message
+                    gotoxy(center_x - 20, y + 1);
+                    set_color(COLOR_RED);
+                    printf("Error: Page %d is out of range!", newPage);
+                    SLEEP_MS(1500);
+                }
+                break;
+            }
+
+            case 'B': // Change Block
             {
                 int newBlock;
                 gotoxy(center_x - 15, y);
@@ -9480,10 +10033,8 @@ void display_block_ui(t_LnOVS *F, int blkN, char *Fname)
     hide_cursor();
 }
 
-/**
- * Enhanced UI for displaying all file contents with same UI as block display
- */
-void display_all_contents_ui(t_LnOVS *F, char *default_filename)
+
+void display_all_contents_ui(t_LnOF *F, char *default_filename)
 {
     int width = get_terminal_width();
     int height = get_terminal_height();
@@ -9517,7 +10068,7 @@ void display_all_contents_ui(t_LnOVS *F, char *default_filename)
     }
 
     // ========== COUNT TOTAL RECORDS AND STORE POSITIONS ==========
-    t_LnOVS *tempF;
+    t_LnOF *tempF;
     Open(&tempF, filename, 'E');
     if (tempF == NULL)
     {
@@ -9657,13 +10208,13 @@ void display_all_contents_ui(t_LnOVS *F, char *default_filename)
             printf("=");
         printf("\n");
 
-        gotoxy(center_x - 15, 2);
+        gotoxy(center_x - 10, 2);
         set_color(COLOR_MAGENTA);
         printf("ALL FILE CONTENTS");
 
-        gotoxy(center_x - 10, 3);
+        gotoxy(center_x - 26, 3);
         set_color(COLOR_YELLOW);
-        printf("File: %s | Total Records: %d", filename, totalRecords);
+        printf(" Cost: %d | File: %s | Total Records: %d",totalRecords , filename, totalRecords);
 
         // ========== OPEN FILE ==========
         Open(&F, filename, 'E');
@@ -9740,15 +10291,24 @@ void display_all_contents_ui(t_LnOVS *F, char *default_filename)
                 // Student ID
                 printf("| %-10d ", student.Student_ID);
 
-                // Name (truncated)
+                // Name (truncated) - Family Name (10 chars) + First initial
+                char family_display[11];
                 char name[21];
-                snprintf(name, sizeof(name), "%s %c",
-                         student.Family_Name, student.First_Name[0]);
-                if (strlen(name) > 20)
+
+                // Get first 10 chars of family name
+                strncpy(family_display, student.Family_Name, 10);
+                family_display[10] = '\0';
+                if (strlen(student.Family_Name) > 10)
                 {
-                    strncpy(name, name, 17);
-                    strcpy(name + 17, "...");
+                    family_display[9] = '.';
+                    family_display[10] = '\0';
                 }
+
+                // Get first char of first name
+                char first_initial = (strlen(student.First_Name) > 0) ? student.First_Name[0] : '-';
+
+                // Create combined name display
+                snprintf(name, sizeof(name), "%s %c.", family_display, first_initial);
                 printf("| %-19s ", name);
 
                 // Birth date
@@ -9797,7 +10357,7 @@ void display_all_contents_ui(t_LnOVS *F, char *default_filename)
                 // Top border - Cyan color
                 gotoxy(detailsStartX, y);
                 set_color(COLOR_CYAN);
-                printf("+--------------------------------------------------+\n");
+                printf("+-------------------------------------------------+\n");
                 y++;
 
                 // Title - Yellow color
@@ -9808,12 +10368,13 @@ void display_all_contents_ui(t_LnOVS *F, char *default_filename)
                 printf("STUDENT RECORD");
                 gotoxy(detailsStartX + detailsWidth - 1, y);
                 set_color(COLOR_CYAN);
-                printf("|\n");
+                printf(" |\n");
                 y++;
 
                 // Separator - Cyan color
                 gotoxy(detailsStartX, y);
-                printf("+--------------------------------------------------+\n");
+                set_color(COLOR_CYAN);
+                printf("+-------------------------------------------------+\n");
                 y++;
 
                 // Student ID - Yellow label, White value
@@ -9824,6 +10385,7 @@ void display_all_contents_ui(t_LnOVS *F, char *default_filename)
                 set_color(COLOR_WHITE);
                 printf("%-35d", selectedStudent.Student_ID);
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
@@ -9833,8 +10395,18 @@ void display_all_contents_ui(t_LnOVS *F, char *default_filename)
                 set_color(COLOR_YELLOW);
                 printf("Family Name: ");
                 set_color(COLOR_WHITE);
-                printf("%-33s", selectedStudent.Family_Name);
+                // Display first 10 characters of family name
+                char family_display[11];
+                strncpy(family_display, selectedStudent.Family_Name, 10);
+                family_display[10] = '\0';
+                if (strlen(selectedStudent.Family_Name) > 10)
+                {
+                    family_display[9] = '.';
+                    family_display[10] = '\0';
+                }
+                printf("%-33s", family_display);
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
@@ -9844,8 +10416,21 @@ void display_all_contents_ui(t_LnOVS *F, char *default_filename)
                 set_color(COLOR_YELLOW);
                 printf("First Name: ");
                 set_color(COLOR_WHITE);
-                printf("%-34s", selectedStudent.First_Name);
+                // Display first character of first name
+                char first_name_display[3];
+                if (strlen(selectedStudent.First_Name) > 0)
+                {
+                    first_name_display[0] = selectedStudent.First_Name[0];
+                    first_name_display[1] = '.';
+                    first_name_display[2] = '\0';
+                }
+                else
+                {
+                    strcpy(first_name_display, "-");
+                }
+                printf("%-34s", first_name_display);
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
@@ -9862,6 +10447,7 @@ void display_all_contents_ui(t_LnOVS *F, char *default_filename)
                 set_color(COLOR_WHITE);
                 printf("%-34s", date_str);
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
@@ -9873,6 +10459,7 @@ void display_all_contents_ui(t_LnOVS *F, char *default_filename)
                 set_color(COLOR_WHITE);
                 printf("%-38s", selectedStudent.Wilaya_Birth);
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
@@ -9885,6 +10472,7 @@ void display_all_contents_ui(t_LnOVS *F, char *default_filename)
                 printf("%-37s",
                        selectedStudent.Gender == 1 ? "Male" : "Female");
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
@@ -9896,6 +10484,7 @@ void display_all_contents_ui(t_LnOVS *F, char *default_filename)
                 set_color(COLOR_WHITE);
                 printf("%-34s", selectedStudent.Blood_Type);
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
@@ -9907,19 +10496,58 @@ void display_all_contents_ui(t_LnOVS *F, char *default_filename)
                 set_color(COLOR_WHITE);
                 printf("%-31s", selectedStudent.Year_Study);
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
-                // Speciality - Yellow label, White value
+ // Speciality - Yellow label, White value
                 gotoxy(detailsStartX, y);
                 printf("|  ");
                 set_color(COLOR_YELLOW);
                 printf("Speciality: ");
                 set_color(COLOR_WHITE);
-                printf("%-34s", selectedStudent.Speciality);
+                
+                // CHECK IF STUDENT IS 2CS OR 3CS
+                if (strcmp(selectedStudent.Year_Study, "2CS") == 0 || 
+                    strcmp(selectedStudent.Year_Study, "3CS") == 0)
+                {
+                    // For 2CS/3CS: Extract text between parentheses
+                    char *speciality_text = selectedStudent.Speciality;
+                    char *start_paren = strchr(speciality_text, '(');
+                    char *end_paren = strchr(speciality_text, ')');
+                    
+                    if (start_paren != NULL && end_paren != NULL && end_paren > start_paren)
+                    {
+                        // Extract text between parentheses
+                        char extracted_speciality[50];
+                        int length = end_paren - start_paren - 1;
+                        if (length > 0 && length < sizeof(extracted_speciality))
+                        {
+                            strncpy(extracted_speciality, start_paren + 1, length);
+                            extracted_speciality[length] = '\0';
+                            printf("%-34s", extracted_speciality);
+                        }
+                        else
+                        {
+                            printf("%-34s", selectedStudent.Speciality);
+                        }
+                    }
+                    else
+                    {
+                        printf("%-34s", selectedStudent.Speciality);
+                    }
+                }
+                else
+                {
+                    // For other years: Show full speciality
+                    printf("%-34s", selectedStudent.Speciality);
+                }
+                
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
+
 
                 // Campus Resident - Yellow label, White value
                 gotoxy(detailsStartX, y);
@@ -9929,12 +10557,13 @@ void display_all_contents_ui(t_LnOVS *F, char *default_filename)
                 set_color(COLOR_WHITE);
                 printf("%-29s", selectedStudent.Resident_UC ? "Yes" : "No");
                 set_color(COLOR_CYAN);
+                gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
 
                 // Bottom border - Cyan color
                 gotoxy(detailsStartX, y);
-                printf("+--------------------------------------------------+\n");
+                printf("+-------------------------------------------------+\n");
                 y += 2;
             }
         }
@@ -10141,7 +10770,7 @@ int select_file_for_analysis(int start_y, int center_x)
         // ========== FILE SELECTION BOX ==========
         gotoxy(center_x - 35, start_y);
         set_color(COLOR_BLUE);
-        printf("+==================================================================+\n");
+        printf("+===================================================================+\n");
 
         gotoxy(center_x - 35, start_y + 1);
         printf("|");
@@ -10159,7 +10788,7 @@ int select_file_for_analysis(int start_y, int center_x)
 
         gotoxy(center_x - 35, start_y + 2);
         set_color(COLOR_BLUE);
-        printf("+==================================================================+\n");
+        printf("+===================================================================+\n");
 
         // Display file options
         for (int i = 0; i < 2; i++)
@@ -10192,7 +10821,7 @@ int select_file_for_analysis(int start_y, int center_x)
 
         gotoxy(center_x - 35, start_y + 5);
         set_color(COLOR_BLUE);
-        printf("+==================================================================+\n");
+        printf("+===================================================================+\n");
 
         // ========== FILE INFORMATION ==========
         gotoxy(center_x - 35, start_y + 7);
@@ -10285,7 +10914,7 @@ int get_block_number_ui(int start_y, int center_x, char *filename)
 
     // Try to get max blocks from file
     int max_blocks = 100; // Default
-    t_LnOVS *F;
+    t_LnOF *F;
     Open(&F, filename, 'E');
     if (F != NULL)
     {
@@ -10554,7 +11183,7 @@ void display_header_ui(char *default_filename)
     printf("\n\n");
 
     // Open file
-    t_LnOVS *F;
+    t_LnOF *F;
     Open(&F, filename, 'E');
     if (F == NULL)
     {
@@ -10597,7 +11226,7 @@ void display_header_ui(char *default_filename)
     printf("HEADER VALUES");
     gotoxy(tableStartX + tableWidth - 1, tableStartY + 1);
     set_color(COLOR_CYAN);
-    printf("|\n");
+    printf("  |\n");
 
     gotoxy(tableStartX, tableStartY + 2);
     printf("+--------------------------------------------------+\n");
@@ -10690,7 +11319,7 @@ void display_header_ui(char *default_filename)
     printf("HEADER EXPLANATIONS");
     gotoxy(tableStartX + tableWidth - 1, lineY + 1);
     set_color(COLOR_CYAN);
-    printf("|\n");
+    printf("  |\n");
 
     gotoxy(tableStartX, lineY + 2);
     printf("+--------------------------------------------------+\n");
@@ -10738,7 +11367,7 @@ void display_header_ui(char *default_filename)
     for (int i = 0; i < remainingSpaces; i++)
         printf(" ");
     set_color(COLOR_CYAN);
-    printf("|\n");
+    printf("  |\n");
     currentLine++;
 
     // Lost Space explanation
@@ -10752,7 +11381,7 @@ void display_header_ui(char *default_filename)
     for (int i = 0; i < remainingSpaces; i++)
         printf(" ");
     set_color(COLOR_CYAN);
-    printf("|\n");
+    printf(" |\n");
     currentLine++;
 
     // New Block Border explanation
@@ -10766,7 +11395,7 @@ void display_header_ui(char *default_filename)
     for (int i = 0; i < remainingSpaces; i++)
         printf(" ");
     set_color(COLOR_CYAN);
-    printf("|\n");
+    printf("  |\n");
     currentLine++;
 
     // Free Block List explanation
@@ -10780,7 +11409,7 @@ void display_header_ui(char *default_filename)
     for (int i = 0; i < remainingSpaces; i++)
         printf(" ");
     set_color(COLOR_CYAN);
-    printf("|\n");
+    printf("  |\n");
 
     // Close second table with bottom border
     gotoxy(tableStartX, currentLine + 1);
@@ -10855,7 +11484,7 @@ void create_lof_file_workflow()
     {
         // Count 1CP and 2CP students
         int cp_student_count = 0;
-        t_LnOVS *F;
+        t_LnOF *F;
         Open(&F, fname, 'E');
         block buffer;
 
@@ -10960,7 +11589,7 @@ void create_lof_file_workflow()
 
         // Count CP students for progress tracking
         int cp_student_count = 0;
-        t_LnOVS *F;
+        t_LnOF *F;
         Open(&F, fname, 'E');
         block buffer;
 
@@ -10983,7 +11612,7 @@ void create_lof_file_workflow()
         int index_cp_size = 0;
 
         // Filter and create CP index
-        t_LnOVS *F2;
+        t_LnOF *F2;
         Open(&F2, fname, 'E');
 
         for (int i = 0; i < index_size; i++)
@@ -11009,7 +11638,7 @@ void create_lof_file_workflow()
         set_color(COLOR_WHITE);
 
         // Now create the STUDENTS_CP.bin file
-        t_LnOVS *student_file;
+        t_LnOF *student_file;
         Open(&student_file, fname, 'E');
 
         // Call the create_CP_STUDENT function
@@ -11280,7 +11909,7 @@ void display_optional_operations_menu()
             case 2: // Display Specific Block
             {
                 CLEAR_SCREEN();
-                t_LnOVS *F;
+                t_LnOF *F;
                 display_block_ui(F, 0, NULL);
                 display_optional_operations_menu();
                 return;
@@ -11289,7 +11918,7 @@ void display_optional_operations_menu()
             case 3: // Display All File Contents
             {
                 CLEAR_SCREEN();
-                t_LnOVS *F;
+                t_LnOF *F;
                 display_all_contents_ui(F, "STUDENTS_ESI.bin");
                 display_optional_operations_menu();
                 return;
@@ -11341,7 +11970,7 @@ void display_optional_operations_menu()
             case 2:
             {
                 CLEAR_SCREEN();
-                t_LnOVS *F;
+                t_LnOF *F;
                 display_block_ui(F, 0, NULL);
                 display_optional_operations_menu();
                 return;
@@ -11349,7 +11978,7 @@ void display_optional_operations_menu()
 
             case 3:
                 CLEAR_SCREEN();
-                t_LnOVS *F;
+                t_LnOF *F;
                 display_all_contents_ui(F, "STUDENTS_ESI.bin");
                 display_optional_operations_menu();
                 return;

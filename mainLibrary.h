@@ -50,7 +50,7 @@ typedef struct LnOVS_file
 {
    FILE *f;  // C stream implementing the file
    header h; // the header in main memory
-} t_LnOVS;
+} t_LnOF;
 // Core file operation functions
 
 // the structures related to the primary index table
@@ -122,12 +122,12 @@ typedef struct
    header_ip head;
 } TOF_ip;
 // open a LnOVS file / mode ='N' for a New file and mode ='E' for an Existing file
-// returns in *F a pointer to a newly allocated variable of type 't_LnOVS'
-void Open(t_LnOVS **F, char *fname, char mode)
+// returns in *F a pointer to a newly allocated variable of type 't_LnOF'
+void Open(t_LnOF **F, char *fname, char mode)
 {
    block buf;
 
-   *F = malloc(sizeof(t_LnOVS));
+   *F = malloc(sizeof(t_LnOF));
 
    if (mode == 'E' || mode == 'e')
    {
@@ -206,8 +206,8 @@ void Open_TOF(TOF_ip **F, char *fname, char mode)
 } // TOF open
 
 // close a LnOVS file :
-// the header is first saved at the beginning of the file (offset 0) and the t_LnOVS variable is freed
-void Close(t_LnOVS *F)
+// the header is first saved at the beginning of the file (offset 0) and the t_LnOF variable is freed
+void Close(t_LnOF *F)
 {
    // saving header part in secondary memory (at the begining of the stream F->f)
    fseek(F->f, 0L, SEEK_SET);
@@ -226,7 +226,7 @@ void Close_TOF(TOF_ip *F)
 } // Close TOF file
 
 // reading data block number i into variable buf
-void ReadBlock(t_LnOVS *F, long i, block *buf)
+void ReadBlock(t_LnOF *F, long i, block *buf)
 {
    fseek(F->f, sizeof(header) + (i - 1) * sizeof(block), SEEK_SET);
    fread(buf, sizeof(block), 1, F->f);
@@ -239,7 +239,7 @@ void ReadBlock_ip(TOF_ip *F, int i, block_ip *buf)
 }
 
 // writing the contents of the variable buf in data block number i
-void WriteBlock(t_LnOVS *F, int i, block *buf)
+void WriteBlock(t_LnOF *F, int i, block *buf)
 {
    fseek(F->f, sizeof(header) + (i - 1) * sizeof(block), SEEK_SET);
    fwrite(buf, sizeof(block), 1, F->f);
@@ -252,7 +252,7 @@ void WriteBlock_ip(TOF_ip *F, int i, block_ip *buf)
 }
 
 // header updates in main memory
-void setHeader(t_LnOVS *F, char *hname, long val)
+void setHeader(t_LnOF *F, char *hname, long val)
 {
    if (strcmp(hname, "head") == 0)
    {
@@ -298,7 +298,7 @@ void setHeader_ip(TOF_ip *F, char *hname, int val)
 }
 
 // header values (from main memory)
-long getHeader(t_LnOVS *F, char *hname)
+long getHeader(t_LnOF *F, char *hname)
 {
    if (strcmp(hname, "head") == 0)
       return F->h.head;
@@ -325,7 +325,7 @@ int getHeader_ip(TOF_ip *F, char *hname)
 }
 
 // allocate a new block to the file
-long AllocBlock(t_LnOVS *F)
+long AllocBlock(t_LnOF *F)
 {
    long i;
    block buf;
@@ -350,7 +350,7 @@ long AllocBlock(t_LnOVS *F)
 };
 
 // mark block i as unused
-void freeBlock(t_LnOVS *F, long i)
+void freeBlock(t_LnOF *F, long i)
 {
    block buf;
 
@@ -535,7 +535,7 @@ int randomDay(int year, int month)
    return (rand() % days) + 1;
 }
 
-void DisplayAllContentsTable(t_LnOVS *F)
+void DisplayAllContentsTable(t_LnOF *F)
 {
    block currentBlock;
    rec studentRecord;
@@ -819,7 +819,7 @@ int insert_newStudent(char *filename, Pr_index indextable[], int *Size, int Gend
       binary_search(indextable, *Size, Student_ID, &found, &position);
    } while (found); // Continue until we find a unique ID
 
-   t_LnOVS *F;
+   t_LnOF *F;
    long last_block;
    block buf;
 
@@ -981,7 +981,7 @@ int Delete_by_student_ID(Pr_index indextable[], int *Size, int StudentID, char *
    }
    else
    {
-      t_LnOVS *F;
+      t_LnOF *F;
       Open(&F, fname, 'E');
       block buf, bufl;
       long last_block = getHeader(F, "tail");
@@ -1115,7 +1115,7 @@ int modification_first_name(int StudentID, char *firstname, Pr_index indextable[
    }
    else
    {
-      t_LnOVS *F;
+      t_LnOF *F;
       Open(&F, fname, 'E'); // 'E' for existing file
       block buf;
 
@@ -1174,7 +1174,7 @@ void display_students_by_Blood(Pr_index index_table[], int size, int value, char
       return;
    }
 
-   t_LnOVS *F;
+   t_LnOF *F;
    block buffer;
    rec record;
    Open(&F, fname, 'E');
@@ -1269,7 +1269,7 @@ void display_students_by_Speciality(Pr_index index_table[], int size, int value,
       return;
    }
 
-   t_LnOVS *F;
+   t_LnOF *F;
    block buffer;
    rec record;
    Open(&F, fname, 'E');
@@ -1380,7 +1380,7 @@ void display_students_by_birth_interval(Pr_index index_table[], int size, int Y1
       return;
    }
 
-   t_LnOVS *F;
+   t_LnOF *F;
    block buffer;
    rec record;
    Open(&F, fname, 'E');
@@ -1478,7 +1478,7 @@ void display_students_by_year_study(Pr_index index_table[], int size, int value,
       return;
    }
 
-   t_LnOVS *F;
+   t_LnOF *F;
    block buffer;
    rec record;
    int k = start;
@@ -1566,7 +1566,7 @@ void display_students_by_year_study(Pr_index index_table[], int size, int value,
    Close(F);
 }
 
-void display_header(t_LnOVS *F, char *Fname)
+void display_header(t_LnOF *F, char *Fname)
 {
 
    Open(&F, Fname, 'E');
@@ -1594,7 +1594,7 @@ void display_header(t_LnOVS *F, char *Fname)
    Close(F);
 }
 
-void display_block(t_LnOVS *F, int blkN, char *Fname)
+void display_block(t_LnOF *F, int blkN, char *Fname)
 {
    Open(&F, Fname, 'E');
    block buff;
@@ -1678,7 +1678,7 @@ void display_block(t_LnOVS *F, int blkN, char *Fname)
 
 // dipaly all the content of the file
 
-void DisplayAllContentsTableFileName(t_LnOVS *F, char *Fname)
+void DisplayAllContentsTableFileName(t_LnOF *F, char *Fname)
 {
    block currentBlock;
    rec studentRecord;
@@ -1775,9 +1775,9 @@ void DisplayAllContentsTableFileName(t_LnOVS *F, char *Fname)
    Close(F);
 }
 
-void create_CP_STUDENT(Pr_index index_table[], int max_size, t_LnOVS *student_file)
+void create_CP_STUDENT(Pr_index index_table[], int max_size, t_LnOF *student_file)
 {
-   t_LnOVS *F;
+   t_LnOF *F;
 
    Open(&F, "STUDENTS_CP.bin", 'N');
    block buff, buff_student;
@@ -1847,3 +1847,4 @@ void create_CP_STUDENT(Pr_index index_table[], int max_size, t_LnOVS *student_fi
    Close(F);
 }
 #endif // MAINLIBRARY_H
+
