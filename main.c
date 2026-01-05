@@ -3627,6 +3627,7 @@ void display_welcome_screen()
     set_color(COLOR_WHITE);
     printf("2024-2025");
 
+    
     // Students information
     gotoxy(center_x - 15, start_y + 11);
     set_color(COLOR_CYAN);
