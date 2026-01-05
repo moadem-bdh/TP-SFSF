@@ -2049,7 +2049,6 @@ int select_from_list(const char *title, const char *items[], int count, int star
                 printf("> ");
                 set_color(COLOR_WHITE);
                 printf("%-40s", items[i]);
-            
             }
             else
             {
@@ -3627,7 +3626,6 @@ void display_welcome_screen()
     set_color(COLOR_WHITE);
     printf("2024-2025");
 
-    
     // Students information
     gotoxy(center_x - 15, start_y + 11);
     set_color(COLOR_CYAN);
@@ -3863,6 +3861,7 @@ void display_main_menu()
                 CLEAR_SCREEN();
                 t_LnOF *F;
                 display_all_contents_ui(F, "STUDENTS_ESI.bin");
+
                 current_main_menu_selection = 0;
                 return;
             case 3:
@@ -4730,6 +4729,7 @@ void display_file_operations_menu()
                 {
                     printf("The creation cost C2 is: %d\n", C2);
                     printf("This represents the number of blocks written.\n");
+                    press_any_key_to_continue();
                 }
 
                 operation_completed_prompt(0);
@@ -4799,6 +4799,306 @@ void display_file_operations_menu()
         }
 #endif
     }
+}
+
+/**
+ * Complete workflow for searching student by ID
+ */
+void search_student_workflow()
+{
+    int width = get_terminal_width();
+    int height = get_terminal_height();
+    int center_x = width / 2;
+
+    CLEAR_SCREEN();
+    hide_cursor();
+
+    // Step 1: Get student ID
+    gotoxy(center_x - 15, 3);
+    set_color(COLOR_CYAN);
+    printf("SEARCH STUDENT BY ID - STEP 1/2");
+
+    gotoxy(center_x - 20, 8);
+    set_color(COLOR_WHITE);
+    printf("Enter Student ID to search: ");
+
+    set_color(COLOR_CYAN);
+    show_cursor();
+    int studentID;
+    scanf("%d", &studentID);
+    getchar(); // Clear newline
+    hide_cursor();
+
+    // Step 2: Perform search and display results
+    CLEAR_SCREEN();
+
+    // Check if index is loaded
+    if (index_size == 0)
+    {
+        gotoxy(center_x - 20, 8);
+        set_color(COLOR_RED);
+        printf("Error: Index table is empty!");
+
+        gotoxy(center_x - 25, 10);
+        set_color(COLOR_YELLOW);
+        printf("Please load or create index first.");
+
+        gotoxy(center_x - 15, 12);
+        printf("Press Enter to continue...");
+        getchar();
+        return;
+    }
+
+    // Perform search using the library function
+    bool found;
+    int position;
+    int num_block, offset;
+    int C33 = 0;
+
+    // First check in index using binary search
+    binary_search(index_pr, index_size, studentID, &found, &position);
+
+    if (!found)
+    {
+        // Student not found in index
+        gotoxy(center_x - 15, 8);
+        set_color(COLOR_RED);
+        printf("Student ID %d not found!", studentID);
+        gotoxy(center_x - 15, 14);
+        set_color(COLOR_CYAN);
+        printf("Search cost C33: 0");
+        gotoxy(center_x - 15, 16);
+        set_color(COLOR_YELLOW);
+        printf("Make sure the student exists in the database.");
+
+        gotoxy(center_x - 15, 18);
+        printf("Press Enter to continue...");
+        getchar();
+        return;
+    }
+
+    // Student found in index, now get actual record data
+    t_LnOF *F;
+    Open(&F, fname, 'E');
+
+    block dataBlock;
+    Pr_cor coords = index_pr[position].crdt;
+    ReadBlock(F, coords.block_number, &dataBlock);
+
+    rec studentRecord = dataBlock.tab[coords.offset];
+    Close(F);
+
+    // Also get the search cost using the library function
+    Search_StuDentID(studentID, index_pr, &found, &num_block, &offset, &C33, index_size);
+
+    // Display results
+    gotoxy(center_x - 15, 2);
+    set_color(COLOR_MAGENTA);
+    printf("STUDENT FOUND!");
+
+    // Create display box
+    int boxY = 5;
+    int boxWidth = 70;
+    int boxStartX = center_x - (boxWidth / 2);
+
+    // Top border
+    gotoxy(boxStartX, boxY);
+    set_color(COLOR_CYAN);
+    printf("+");
+    for (int i = 0; i < boxWidth - 2; i++)
+        printf("-");
+    printf("+");
+
+    // Title
+    gotoxy(boxStartX, boxY + 1);
+    printf("|");
+    gotoxy(center_x - 6, boxY + 1);
+    set_color(COLOR_YELLOW);
+    printf("STUDENT INFORMATION");
+    gotoxy(boxStartX + boxWidth - 1, boxY + 1);
+    set_color(COLOR_CYAN);
+    printf("|");
+
+    // Separator
+    gotoxy(boxStartX, boxY + 2);
+    printf("+");
+    for (int i = 0; i < boxWidth - 2; i++)
+        printf("-");
+    printf("+");
+
+    // Display student information
+    int y = boxY + 3;
+
+    // Student ID
+    gotoxy(boxStartX, y);
+    printf("|  ");
+    set_color(COLOR_YELLOW);
+    printf("Student ID: ");
+    set_color(COLOR_WHITE);
+    printf("%d", studentRecord.Student_ID);
+    // Fill remaining space
+    for (int i = 0; i < boxWidth - 15 - 12; i++)
+        printf(" ");
+    set_color(COLOR_CYAN);
+    printf("    |\n");
+    y++;
+
+    // Name
+    gotoxy(boxStartX, y);
+    printf("|  ");
+    set_color(COLOR_YELLOW);
+    printf("Name: ");
+    set_color(COLOR_WHITE);
+    printf("%s %s", studentRecord.First_Name, studentRecord.Family_Name);
+    // Fill remaining space
+    int nameLength = strlen(studentRecord.First_Name) + strlen(studentRecord.Family_Name) + 2;
+    for (int i = 0; i < boxWidth - 9 - nameLength; i++)
+        printf(" ");
+    set_color(COLOR_CYAN);
+    printf(" |\n");
+    y++;
+
+    // Date of Birth
+    char dob_str[20];
+    snprintf(dob_str, sizeof(dob_str), "%02d/%02d/%04d",
+             studentRecord.Date_Birth.day,
+             studentRecord.Date_Birth.month,
+             studentRecord.Date_Birth.year);
+    gotoxy(boxStartX, y);
+    printf("|  ");
+    set_color(COLOR_YELLOW);
+    printf("Date of Birth: ");
+    set_color(COLOR_WHITE);
+    printf("%s", dob_str);
+    // Fill remaining space
+    for (int i = 0; i < boxWidth - 18 - strlen(dob_str); i++)
+        printf(" ");
+    set_color(COLOR_CYAN);
+    printf("|\n");
+    y++;
+
+    // Gender
+    gotoxy(boxStartX, y);
+    printf("|  ");
+    set_color(COLOR_YELLOW);
+    printf("Gender: ");
+    set_color(COLOR_WHITE);
+    printf("%s", studentRecord.Gender == 1 ? "Male" : "Female");
+    // Fill remaining space
+    int genderLength = studentRecord.Gender == 1 ? 4 : 6;
+    for (int i = 0; i < boxWidth - 11 - genderLength; i++)
+        printf(" ");
+    set_color(COLOR_CYAN);
+    printf("|\n");
+    y++;
+
+    // Wilaya
+    gotoxy(boxStartX, y);
+    printf("|  ");
+    set_color(COLOR_YELLOW);
+    printf("Wilaya: ");
+    set_color(COLOR_WHITE);
+    printf("%s", studentRecord.Wilaya_Birth);
+    // Fill remaining space
+    for (int i = 0; i < boxWidth - 11 - strlen(studentRecord.Wilaya_Birth); i++)
+        printf(" ");
+    set_color(COLOR_CYAN);
+    printf("|\n");
+    y++;
+
+    // Blood Type
+    gotoxy(boxStartX, y);
+    printf("|  ");
+    set_color(COLOR_YELLOW);
+    printf("Blood Type: ");
+    set_color(COLOR_WHITE);
+    printf("%s", studentRecord.Blood_Type);
+    // Fill remaining space
+    for (int i = 0; i < boxWidth - 15 - strlen(studentRecord.Blood_Type); i++)
+        printf(" ");
+    set_color(COLOR_CYAN);
+    printf("|\n");
+    y++;
+
+    // Year of Study
+    gotoxy(boxStartX, y);
+    printf("|  ");
+    set_color(COLOR_YELLOW);
+    printf("Year of Study: ");
+    set_color(COLOR_WHITE);
+    printf("%s", studentRecord.Year_Study);
+    // Fill remaining space
+    for (int i = 0; i < boxWidth - 18 - strlen(studentRecord.Year_Study); i++)
+        printf(" ");
+    set_color(COLOR_CYAN);
+    printf("|\n");
+    y++;
+
+    // Speciality
+    gotoxy(boxStartX, y);
+    printf("|  ");
+    set_color(COLOR_YELLOW);
+    printf("Speciality: ");
+    set_color(COLOR_WHITE);
+    printf("%s", studentRecord.Speciality);
+    // Fill remaining space
+    for (int i = 0; i < boxWidth - 15 - strlen(studentRecord.Speciality); i++)
+        printf(" ");
+    set_color(COLOR_CYAN);
+    printf("|\n");
+    y++;
+
+    // Campus Resident
+    gotoxy(boxStartX, y);
+    printf("|  ");
+    set_color(COLOR_YELLOW);
+    printf("Campus Resident: ");
+    set_color(COLOR_WHITE);
+    printf("%s", studentRecord.Resident_UC ? "Yes" : "No");
+    // Fill remaining space
+    int residentLength = studentRecord.Resident_UC ? 3 : 2;
+    for (int i = 0; i < boxWidth - 20 - residentLength; i++)
+        printf(" ");
+    set_color(COLOR_CYAN);
+    printf("|\n");
+    y++;
+
+    // Location
+    char location_str[30];
+    snprintf(location_str, sizeof(location_str), "Block %ld, Offset %d",
+             coords.block_number, coords.offset);
+    gotoxy(boxStartX, y);
+    printf("|  ");
+    set_color(COLOR_YELLOW);
+    printf("Location: ");
+    set_color(COLOR_WHITE);
+    printf("%s", location_str);
+    // Fill remaining space
+    for (int i = 0; i < boxWidth - 13 - strlen(location_str); i++)
+        printf(" ");
+    set_color(COLOR_CYAN);
+    printf("|\n");
+    y++;
+
+    // Bottom border
+    gotoxy(boxStartX, y);
+    printf("+");
+    for (int i = 0; i < boxWidth - 2; i++)
+        printf("-");
+    printf("+");
+
+    // Display search cost
+    y += 2;
+    gotoxy(center_x - 15, y);
+    set_color(COLOR_CYAN);
+    printf("Search cost C33: %d", C33);
+
+    // Wait for user
+    y += 2;
+    gotoxy(center_x - 15, y);
+    set_color(COLOR_YELLOW);
+    printf("Press Enter to continue...");
+    getchar();
 }
 
 void display_search_operations_menu()
@@ -4971,26 +5271,7 @@ void display_search_operations_menu()
             case 1:
             {
                 CLEAR_SCREEN();
-                printf("\n=== SEARCH STUDENT BY ID ===\n\n");
-
-                int student_id;
-                int C33, num_block, offset;
-                bool found;
-                printf("Enter student ID to search: ");
-                scanf("%d", &student_id);
-                getchar();
-
-                printf("\nSearching for student ID: %d\n", student_id);
-                Search_StuDentID(student_id, index_pr, &found, &num_block, &offset, &C33, index_size);
-                printf("\nThe Cost of This Operation is : %d", C33);
-                if (!found)
-                {
-                    printf("\n User not Found ");
-                }
-                else
-                {
-                    printf("\nThe User Information found in block number %d, and offset number %d", num_block, offset);
-                }
+                search_student_workflow();
                 operation_completed_prompt(0);
                 display_search_operations_menu();
                 return;
@@ -5585,7 +5866,7 @@ void operation_completed_prompt(int return_to_main)
     int width = get_terminal_width();
     int height = get_terminal_height();
     int center_x = width / 2;
-
+    CLEAR_SCREEN();
     printf("\n\n");
     set_color(COLOR_CYAN);
     for (int i = 0; i < width; i++)
@@ -5819,7 +6100,7 @@ void display_blood_type_ui(Pr_index index_table[], int size, int value, char *fn
 
         gotoxy(center_x - 26, 3);
         set_color(COLOR_YELLOW);
-        printf("Cost: %d | Blood Type: %s | Total Students: %d",totalStudents ,blood_type_name, totalStudents);
+        printf("Cost: %d | Blood Type: %s | Total Students: %d", totalStudents, blood_type_name, totalStudents);
 
         // ========== OPEN FILE ==========
         t_LnOF *F;
@@ -6115,16 +6396,16 @@ void display_blood_type_ui(Pr_index index_table[], int size, int value, char *fn
                 set_color(COLOR_YELLOW);
                 printf("Speciality: ");
                 set_color(COLOR_WHITE);
-                
+
                 // CHECK IF STUDENT IS 2CS OR 3CS
-                if (strcmp(selectedStudent.Year_Study, "2CS") == 0 || 
+                if (strcmp(selectedStudent.Year_Study, "2CS") == 0 ||
                     strcmp(selectedStudent.Year_Study, "3CS") == 0)
                 {
                     // For 2CS/3CS: Extract text between parentheses
                     char *speciality_text = selectedStudent.Speciality;
                     char *start_paren = strchr(speciality_text, '(');
                     char *end_paren = strchr(speciality_text, ')');
-                    
+
                     if (start_paren != NULL && end_paren != NULL && end_paren > start_paren)
                     {
                         // Extract text between parentheses
@@ -6151,7 +6432,7 @@ void display_blood_type_ui(Pr_index index_table[], int size, int value, char *fn
                     // For other years: Show full speciality
                     printf("%-34s", selectedStudent.Speciality);
                 }
-                
+
                 set_color(COLOR_CYAN);
                 gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
@@ -6482,7 +6763,7 @@ void display_speciality_ui(Pr_index index_table[], int size, char *fname, int *C
 
         gotoxy(center_x - 36, 3);
         set_color(COLOR_YELLOW);
-        printf("Cost: %d | Speciality: %s | Total Students: %d",totalStudents, speciality_name, totalStudents);
+        printf("Cost: %d | Speciality: %s | Total Students: %d", totalStudents, speciality_name, totalStudents);
 
         // ========== OPEN FILE ==========
         t_LnOF *F;
@@ -6778,16 +7059,16 @@ void display_speciality_ui(Pr_index index_table[], int size, char *fname, int *C
                 set_color(COLOR_YELLOW);
                 printf("Speciality: ");
                 set_color(COLOR_WHITE);
-                
+
                 // CHECK IF STUDENT IS 2CS OR 3CS
-                if (strcmp(selectedStudent.Year_Study, "2CS") == 0 || 
+                if (strcmp(selectedStudent.Year_Study, "2CS") == 0 ||
                     strcmp(selectedStudent.Year_Study, "3CS") == 0)
                 {
                     // For 2CS/3CS: Extract text between parentheses
                     char *speciality_text = selectedStudent.Speciality;
                     char *start_paren = strchr(speciality_text, '(');
                     char *end_paren = strchr(speciality_text, ')');
-                    
+
                     if (start_paren != NULL && end_paren != NULL && end_paren > start_paren)
                     {
                         // Extract text between parentheses
@@ -6814,7 +7095,7 @@ void display_speciality_ui(Pr_index index_table[], int size, char *fname, int *C
                     // For other years: Show full speciality
                     printf("%-34s", selectedStudent.Speciality);
                 }
-                
+
                 set_color(COLOR_CYAN);
                 gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
@@ -7130,7 +7411,7 @@ void display_year_study_ui(Pr_index index_table[], int size, int value, char *fn
 
         gotoxy(center_x - 26, 3);
         set_color(COLOR_YELLOW);
-        printf("Cost: %d | Year: %s | Total Students: %d",totalStudents, year_name, totalStudents);
+        printf("Cost: %d | Year: %s | Total Students: %d", totalStudents, year_name, totalStudents);
 
         // ========== OPEN FILE ==========
         t_LnOF *F;
@@ -7426,16 +7707,16 @@ void display_year_study_ui(Pr_index index_table[], int size, int value, char *fn
                 set_color(COLOR_YELLOW);
                 printf("Speciality: ");
                 set_color(COLOR_WHITE);
-                
+
                 // CHECK IF STUDENT IS 2CS OR 3CS
-                if (strcmp(selectedStudent.Year_Study, "2CS") == 0 || 
+                if (strcmp(selectedStudent.Year_Study, "2CS") == 0 ||
                     strcmp(selectedStudent.Year_Study, "3CS") == 0)
                 {
                     // For 2CS/3CS: Extract text between parentheses
                     char *speciality_text = selectedStudent.Speciality;
                     char *start_paren = strchr(speciality_text, '(');
                     char *end_paren = strchr(speciality_text, ')');
-                    
+
                     if (start_paren != NULL && end_paren != NULL && end_paren > start_paren)
                     {
                         // Extract text between parentheses
@@ -7462,7 +7743,7 @@ void display_year_study_ui(Pr_index index_table[], int size, int value, char *fn
                     // For other years: Show full speciality
                     printf("%-34s", selectedStudent.Speciality);
                 }
-                
+
                 set_color(COLOR_CYAN);
                 gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
@@ -7695,7 +7976,7 @@ void display_birth_interval_ui(Pr_index index_table[], int size, int Y1, int Y2,
 
     // Count students in interval who are 20 or under
     int totalStudents = 0;
-    
+
     // First pass: count students
     for (int i = 0; i < size; i++)
     {
@@ -7787,7 +8068,7 @@ void display_birth_interval_ui(Pr_index index_table[], int size, int Y1, int Y2,
 
         gotoxy(center_x - 26, 3);
         set_color(COLOR_YELLOW);
-        printf("Cost : %d | Total Students: %d (Born 2005 or later)",totalStudents, totalStudents);
+        printf("Cost : %d | Total Students: %d (Born 2005 or later)", totalStudents, totalStudents);
 
         // ========== OPEN FILE ==========
         t_LnOF *F;
@@ -8083,16 +8364,16 @@ void display_birth_interval_ui(Pr_index index_table[], int size, int Y1, int Y2,
                 set_color(COLOR_YELLOW);
                 printf("Speciality: ");
                 set_color(COLOR_WHITE);
-                
+
                 // CHECK IF STUDENT IS 2CS OR 3CS
-                if (strcmp(selectedStudent.Year_Study, "2CS") == 0 || 
+                if (strcmp(selectedStudent.Year_Study, "2CS") == 0 ||
                     strcmp(selectedStudent.Year_Study, "3CS") == 0)
                 {
                     // For 2CS/3CS: Extract text between parentheses
                     char *speciality_text = selectedStudent.Speciality;
                     char *start_paren = strchr(speciality_text, '(');
                     char *end_paren = strchr(speciality_text, ')');
-                    
+
                     if (start_paren != NULL && end_paren != NULL && end_paren > start_paren)
                     {
                         // Extract text between parentheses
@@ -8119,7 +8400,7 @@ void display_birth_interval_ui(Pr_index index_table[], int size, int Y1, int Y2,
                     // For other years: Show full speciality
                     printf("%-34s", selectedStudent.Speciality);
                 }
-                
+
                 set_color(COLOR_CYAN);
                 gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
@@ -9442,8 +9723,8 @@ void display_block_ui(t_LnOF *F, int blkN, char *Fname)
         // SHOW NUMBER OF RECORDS IN BLOCK HEADER - MATCHING display_all_contents_ui
         gotoxy(center_x - 26, 3);
         set_color(COLOR_YELLOW);
-        printf("Cost: %d | File: %s | Block: %d/%d | Records in Block: %d", 
-               totalRecords,filename, currentBlock, maxBlocks, totalRecords);
+        printf("Cost: %d | File: %s | Block: %d/%d | Records in Block: %d",
+               totalRecords, filename, currentBlock, maxBlocks, totalRecords);
 
         // ========== RECORDS TABLE ==========
         if (totalRecords > 0)
@@ -9757,16 +10038,16 @@ void display_block_ui(t_LnOF *F, int blkN, char *Fname)
                 set_color(COLOR_YELLOW);
                 printf("Speciality: ");
                 set_color(COLOR_WHITE);
-                
+
                 // CHECK IF STUDENT IS 2CS OR 3CS
-                if (strcmp(selectedStudent.Year_Study, "2CS") == 0 || 
+                if (strcmp(selectedStudent.Year_Study, "2CS") == 0 ||
                     strcmp(selectedStudent.Year_Study, "3CS") == 0)
                 {
                     // For 2CS/3CS: Extract text between parentheses
                     char *speciality_text = selectedStudent.Speciality;
                     char *start_paren = strchr(speciality_text, '(');
                     char *end_paren = strchr(speciality_text, ')');
-                    
+
                     if (start_paren != NULL && end_paren != NULL && end_paren > start_paren)
                     {
                         // Extract text between parentheses
@@ -9793,7 +10074,7 @@ void display_block_ui(t_LnOF *F, int blkN, char *Fname)
                     // For other years: Show full speciality
                     printf("%-34s", selectedStudent.Speciality);
                 }
-                
+
                 set_color(COLOR_CYAN);
                 gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
@@ -9846,7 +10127,7 @@ void display_block_ui(t_LnOF *F, int blkN, char *Fname)
 
         // ========== NAVIGATION INSTRUCTIONS ==========
         int y = (totalRecords > 0) ? (height - 10) : 10;
-        
+
         gotoxy(center_x - 30, y);
         set_color(COLOR_CYAN);
         printf("Navigation: ");
@@ -10034,7 +10315,6 @@ void display_block_ui(t_LnOF *F, int blkN, char *Fname)
     hide_cursor();
 }
 
-
 void display_all_contents_ui(t_LnOF *F, char *default_filename)
 {
     int width = get_terminal_width();
@@ -10215,7 +10495,7 @@ void display_all_contents_ui(t_LnOF *F, char *default_filename)
 
         gotoxy(center_x - 26, 3);
         set_color(COLOR_YELLOW);
-        printf(" Cost: %d | File: %s | Total Records: %d",totalRecords , filename, totalRecords);
+        printf(" Cost: %d | File: %s | Total Records: %d", totalRecords, filename, totalRecords);
 
         // ========== OPEN FILE ==========
         Open(&F, filename, 'E');
@@ -10501,22 +10781,22 @@ void display_all_contents_ui(t_LnOF *F, char *default_filename)
                 printf(" |\n");
                 y++;
 
- // Speciality - Yellow label, White value
+                // Speciality - Yellow label, White value
                 gotoxy(detailsStartX, y);
                 printf("|  ");
                 set_color(COLOR_YELLOW);
                 printf("Speciality: ");
                 set_color(COLOR_WHITE);
-                
+
                 // CHECK IF STUDENT IS 2CS OR 3CS
-                if (strcmp(selectedStudent.Year_Study, "2CS") == 0 || 
+                if (strcmp(selectedStudent.Year_Study, "2CS") == 0 ||
                     strcmp(selectedStudent.Year_Study, "3CS") == 0)
                 {
                     // For 2CS/3CS: Extract text between parentheses
                     char *speciality_text = selectedStudent.Speciality;
                     char *start_paren = strchr(speciality_text, '(');
                     char *end_paren = strchr(speciality_text, ')');
-                    
+
                     if (start_paren != NULL && end_paren != NULL && end_paren > start_paren)
                     {
                         // Extract text between parentheses
@@ -10543,12 +10823,11 @@ void display_all_contents_ui(t_LnOF *F, char *default_filename)
                     // For other years: Show full speciality
                     printf("%-34s", selectedStudent.Speciality);
                 }
-                
+
                 set_color(COLOR_CYAN);
                 gotoxy(detailsStartX + detailsWidth - 1, y);
                 printf(" |\n");
                 y++;
-
 
                 // Campus Resident - Yellow label, White value
                 gotoxy(detailsStartX, y);
